@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`App > snapshot du rendu initial 1`] = `
+<div
+  class="app"
+>
+  <h1>
+    Hello ScriptLauncher
+  </h1>
+</div>
+`;

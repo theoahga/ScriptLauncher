@@ -7,3 +7,5 @@ dist/
 *.orig
 .DS_Store
 *.log
+notes.txt
+*.tsbuildinfo
