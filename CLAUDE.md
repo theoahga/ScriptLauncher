@@ -1,0 +1,112 @@
+# CLAUDE.md — ScriptLauncher
+
+> Fichier de configuration Claude Code. Placé à la racine du projet, il est automatiquement
+> lu par Claude Code à chaque session.
+
+---
+
+## Projet
+
+ScriptLauncher — app desktop pour lancer des scripts depuis un dossier.  
+Migration Electron → **Tauri 2 + React 18 + TypeScript + Vite + Rust**.  
+Cibles : macOS (`.app`/`.dmg`) · Windows (`.exe`/`.msi`)
+
+## Commandes essentielles
+
+```bash
+npm run tauri dev                    # dev avec hot-reload
+npm run tauri build                  # build prod
+npx tsc --noEmit                     # type-check frontend
+cd src-tauri && cargo check          # compile Rust sans build
+cd src-tauri && cargo clippy         # lint Rust
+cd src-tauri && cargo test           # tests Rust
+npm run test                         # tests frontend (Vitest)
+```
+
+## Réseau multi-agents
+
+Ce projet utilise un réseau d'agents spécialisés qui interagissent via un bus de messages.
+
+```
+agents/
+├── PROTOCOL.md          # Protocole bus — LIRE EN PREMIER
+├── 00_orchestrator.md   # Pilote le réseau, route les interactions
+├── 01_architect.md      # Plan technique + ADR
+├── 02_dev.md            # Implémentation
+├── 03_modernizer.md     # Idiomes + best practices
+├── 04_test_writer.md    # Tests unitaires + intégration
+├── 05_reviewer.md       # Audit + PR finale
+├── 06_meta.md           # Évolution des prompts (batch post-merge)
+└── history/             # Versions archivées des prompts
+```
+
+### Lancer le réseau via Claude Code
+
+```bash
+# Démarrer l'orchestrateur sur une story
+claude --system-prompt agents/00_orchestrator.md \
+       --input artifacts/S-XX/story.md
+
+# Lancer un agent seul (debug / relance)
+claude --system-prompt agents/01_architect.md \
+       --input artifacts/S-XX/story.md \
+       --output artifacts/S-XX/arch_plan.md
+```
+
+### Structure des artefacts par story
+
+```
+artifacts/S-XX/
+├── story.md                  # fournie par toi
+├── agent-bus.jsonl           # bus append-only de la story
+├── pipeline_state.json       # état maintenu par l'orchestrateur
+├── arch_plan.md              # Architecte
+├── code/                     # Dev
+├── modernized/               # Modernizer
+├── modernization_report.md
+├── tests/                    # Test Writer
+├── test_report.md
+├── review.md                 # Reviewer — audit interne
+└── PR.md                     # Reviewer — PR pour toi
+```
+
+### Évolution des prompts
+
+```
+prompt_pr/
+└── PPR-XX.md    # PR de prompt produite par le Méta, à valider par toi
+```
+
+## Gouvernance — rappel pour Claude Code
+
+```
+JAMAIS de commit direct
+JAMAIS de merge
+JAMAIS de modification de agents/*.md sans PPR validée par toi
+TOUJOURS attendre ✅ après un BLOCKER
+```
+
+## État d'avancement
+
+| Story | Statut | Notes |
+|-------|--------|-------|
+| S-01 · Init Tauri | ⬜ | |
+| S-02 · Backend file_system.rs | ⬜ | |
+| S-03 · Backend script_runner.rs | ⬜ | |
+| S-04 · Tauri config + permissions | ⬜ | |
+| S-05 · FolderSelector.tsx | ⬜ | |
+| S-06 · ScriptList.tsx | ⬜ | |
+| S-07 · ScriptExecutor.tsx | ⬜ | |
+| S-08 · App layout + styles | ⬜ | |
+
+## Versions des prompts
+
+| Agent | Version | Dernière PPR |
+|-------|---------|-------------|
+| orchestrator | 2.0 | — |
+| architect | 1.0 | — |
+| dev | 1.0 | — |
+| modernizer | 1.0 | — |
+| test_writer | 1.0 | — |
+| reviewer | 1.0 | — |
+| meta | 1.0 | — |
