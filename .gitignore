@@ -1,0 +1,9 @@
+artifacts/
+.env
+.env.local
+src-tauri/target/
+node_modules/
+dist/
+*.orig
+.DS_Store
+*.log

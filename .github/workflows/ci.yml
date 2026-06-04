@@ -1,0 +1,39 @@
+name: ci
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install deps
+        run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Rust check
+        run: cd src-tauri && cargo check
+      - name: Rust clippy
+        run: cd src-tauri && cargo clippy -- -D warnings
+      - name: Rust tests
+        run: cd src-tauri && cargo test
+      - name: Frontend tests
+        run: npm run test -- --run
