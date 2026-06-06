@@ -1,7 +1,7 @@
 artifacts/
 .env
 .env.local
-src-tauri/target/
+core/target/
 node_modules/
 dist/
 *.orig
