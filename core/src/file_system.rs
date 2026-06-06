@@ -14,19 +14,21 @@ pub struct ScriptInfo {
 }
 
 #[tauri::command]
+// `folder` doit être String (pas &str) : contrat imposé par l'IPC Tauri (serde JSON)
+#[allow(clippy::needless_pass_by_value)]
 pub fn list_scripts(folder: String) -> Result<Vec<ScriptInfo>, String> {
     let path = PathBuf::from(&folder);
 
     if !path.exists() {
-        return Err(format!("Path does not exist: {}", folder));
+        return Err(format!("Path does not exist: {folder}"));
     }
 
     if !path.is_dir() {
-        return Err(format!("Path is not a directory: {}", folder));
+        return Err(format!("Path is not a directory: {folder}"));
     }
 
     let entries = fs::read_dir(&path)
-        .map_err(|e| format!("Failed to read directory: {}", e))?;
+        .map_err(|e| format!("Failed to read directory: {e}"))?;
 
     let mut scripts: Vec<ScriptInfo> = Vec::new();
 
@@ -43,10 +45,10 @@ pub fn list_scripts(folder: String) -> Result<Vec<ScriptInfo>, String> {
         }
 
         // Récupérer l'extension en minuscules
-        let extension = match entry_path.extension() {
-            Some(ext) => ext.to_string_lossy().to_lowercase(),
-            None => continue,
+        let Some(ext_os) = entry_path.extension() else {
+            continue;
         };
+        let extension = ext_os.to_string_lossy().to_lowercase();
 
         // Filtrer par extension reconnue
         if !ALLOWED_EXTENSIONS.contains(&extension.as_str()) {
@@ -54,20 +56,19 @@ pub fn list_scripts(folder: String) -> Result<Vec<ScriptInfo>, String> {
         }
 
         // Calculer le chemin absolu canonique (ADR-03)
-        let canonical = match fs::canonicalize(&entry_path) {
-            Ok(p) => p,
-            Err(_) => continue, // ignore silencieusement (ADR-02)
+        let Ok(canonical) = fs::canonicalize(&entry_path) else {
+            continue; // ignore silencieusement (ADR-02)
         };
 
-        let name = match entry_path.file_name() {
-            Some(n) => n.to_string_lossy().to_string(),
-            None => continue,
+        let Some(name_os) = entry_path.file_name() else {
+            continue;
         };
+        let name = name_os.to_string_lossy().into_owned();
 
         scripts.push(ScriptInfo {
             name,
-            path: canonical.to_string_lossy().to_string(),
-            extension: extension.to_string(),
+            path: canonical.to_string_lossy().into_owned(),
+            extension: extension.clone(),
         });
     }
 
