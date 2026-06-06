@@ -210,4 +210,109 @@ mod tests {
         assert_eq!(scripts[0].name, "DEPLOY.SH");
         assert_eq!(scripts[0].extension, "sh");
     }
+
+    // EC6 — fichier sans extension : ignoré
+    #[test]
+    fn test_list_scripts_no_extension_ignored() {
+        let dir = make_temp_dir("no_ext");
+        File::create(dir.join("Makefile")).unwrap();
+        File::create(dir.join("README")).unwrap();
+        File::create(dir.join("run.sh")).unwrap(); // seul attendu
+
+        let result = list_scripts(dir.to_string_lossy().to_string());
+        cleanup(&dir);
+
+        let scripts = result.expect("should succeed");
+        assert_eq!(scripts.len(), 1);
+        assert_eq!(scripts[0].name, "run.sh");
+    }
+
+    // EC8 — fichier commençant par un point (.bashrc, .zshrc) : ignoré car extension absente
+    #[test]
+    fn test_list_scripts_dotfile_ignored() {
+        let dir = make_temp_dir("dotfile");
+        File::create(dir.join(".bashrc")).unwrap();
+        File::create(dir.join(".zshrc")).unwrap();
+        File::create(dir.join("hello.py")).unwrap(); // seul attendu
+
+        let result = list_scripts(dir.to_string_lossy().to_string());
+        cleanup(&dir);
+
+        let scripts = result.expect("should succeed");
+        assert_eq!(scripts.len(), 1);
+        assert_eq!(scripts[0].name, "hello.py");
+    }
+
+    // EC12 — chemin avec espaces et caractères Unicode
+    #[test]
+    fn test_list_scripts_path_with_spaces_and_unicode() {
+        let dir = make_temp_dir("spaced dir ñoño");
+        File::create(dir.join("mon script.py")).unwrap();
+        File::create(dir.join("données.sh")).unwrap();
+        File::create(dir.join("ignore.txt")).unwrap();
+
+        let result = list_scripts(dir.to_string_lossy().to_string());
+        cleanup(&dir);
+
+        let scripts = result.expect("should succeed with spaces and unicode");
+        assert_eq!(scripts.len(), 2);
+        // Tri : "d" < "m"
+        assert_eq!(scripts[0].name, "données.sh");
+        assert_eq!(scripts[1].name, "mon script.py");
+    }
+
+    // Vérifie que le champ `path` est un chemin absolu (commence par "/")
+    #[test]
+    fn test_list_scripts_path_field_is_absolute() {
+        let dir = make_temp_dir("abs_path");
+        File::create(dir.join("script.sh")).unwrap();
+
+        let result = list_scripts(dir.to_string_lossy().to_string());
+        cleanup(&dir);
+
+        let scripts = result.expect("should succeed");
+        assert_eq!(scripts.len(), 1);
+        assert!(
+            std::path::Path::new(&scripts[0].path).is_absolute(),
+            "path field should be absolute, got: {}",
+            scripts[0].path
+        );
+    }
+
+    // Vérifie que le champ `extension` ne contient pas le point
+    #[test]
+    fn test_list_scripts_extension_has_no_dot() {
+        let dir = make_temp_dir("ext_no_dot");
+        File::create(dir.join("run.py")).unwrap();
+
+        let result = list_scripts(dir.to_string_lossy().to_string());
+        cleanup(&dir);
+
+        let scripts = result.expect("should succeed");
+        assert_eq!(scripts.len(), 1);
+        assert!(
+            !scripts[0].extension.starts_with('.'),
+            "extension should not start with '.', got: {}",
+            scripts[0].extension
+        );
+        assert_eq!(scripts[0].extension, "py");
+    }
+
+    // Toutes les 9 extensions reconnues sont acceptées
+    #[test]
+    fn test_list_scripts_all_allowed_extensions() {
+        let dir = make_temp_dir("all_exts");
+        let files = &[
+            "a.sh", "b.py", "c.js", "d.ts", "e.ps1", "f.bat", "g.cmd", "h.rb", "i.fish",
+        ];
+        for f in files {
+            File::create(dir.join(f)).unwrap();
+        }
+
+        let result = list_scripts(dir.to_string_lossy().to_string());
+        cleanup(&dir);
+
+        let scripts = result.expect("should succeed");
+        assert_eq!(scripts.len(), 9, "all 9 allowed extensions should be accepted");
+    }
 }
