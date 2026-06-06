@@ -87,12 +87,38 @@ main.rs  →  lib.rs::run()  →  tauri::Builder
 - **Permissions Tauri 2** : système de `capabilities` déclaratif (fichier `core/capabilities/default.json`), pas l'ancien `allowlist` Tauri 1.
 - **TypeScript strict** : `strict: true`, `noUnusedLocals`, `noUnusedParameters` dès S-01.
 
-### Commandes de développement
+### Prérequis
+
+- [Node.js](https://nodejs.org/) 20+
+- [Rust](https://rustup.rs/) stable
+- Sur macOS : Xcode Command Line Tools (`xcode-select --install`)
+- Sur Linux : `libwebkit2gtk-4.1-dev`, `libgtk-3-dev` (voir [Tauri prerequisites](https://tauri.app/start/prerequisites/))
+
+### Démarrage rapide
 
 ```bash
-npm run tauri dev          # lance l'app avec hot-reload
-npm run tauri build        # build de production
+# 1. Installer les dépendances npm
+npm install
 
+# 2. Lancer en mode développement (hot-reload frontend + Rust)
+npm run tauri dev
+```
+
+L'app s'ouvre dans une fenêtre native. Le frontend se recharge automatiquement à chaque modification dans `ui/`. Le backend Rust recompile à chaque modification dans `core/src/`.
+
+### Build de production
+
+```bash
+npm run tauri build
+```
+
+Les binaires et installeurs sont générés dans `core/target/release/bundle/` :
+- macOS : `.app` et `.dmg`
+- Windows : `.exe` et `.msi`
+
+### Vérifications qualité
+
+```bash
 npx tsc --noEmit           # vérifie les types frontend
 npm run test               # tests Vitest (frontend)
 
