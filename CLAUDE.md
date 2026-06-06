@@ -82,8 +82,9 @@ prompt_pr/
 ## Gouvernance — rappel pour Claude Code
 
 ```
-JAMAIS de commit direct
-JAMAIS de merge
+JAMAIS de commit direct sur main
+JAMAIS de merge (le merge story → main reste humain)
+Les agents PEUVENT committer sur story/S-XX et créer des PRs GitHub
 JAMAIS de modification de agents/*.md sans PPR validée par toi
 TOUJOURS attendre ✅ après un BLOCKER
 ```
@@ -107,8 +108,8 @@ TOUJOURS attendre ✅ après un BLOCKER
 |-------|---------|-------------|
 | orchestrator | 2.2 | PPR-02 |
 | architect | 1.0 | — |
-| dev | 1.0 | — |
+| dev | 1.1 | PPR-01 |
 | modernizer | 1.0 | — |
 | test_writer | 1.0 | — |
-| reviewer | 1.0 | — |
+| reviewer | 1.1 | PPR-01 |
 | meta | 1.0 | — |

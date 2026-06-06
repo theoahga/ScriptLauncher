@@ -67,6 +67,12 @@ Les agents ne se lancent pas dans un ordre rigide — tu les actives quand leurs
 ```
 Architecte    → peut démarrer dès que story.md est disponible
 Dev           → peut démarrer quand arch_plan.md est produit
+               AVANT d'activer le Dev : créer la branche story/S-XX
+               ```bash
+               git checkout -b story/S-XX
+               # Si la branche existe déjà (reprise) :
+               # git checkout story/S-XX
+               ```
 Modernizer    → peut démarrer quand code/ est produit
 Test Writer   → peut démarrer quand modernized/ est produit
 Reviewer      → peut démarrer quand tests/ est produit
@@ -176,7 +182,9 @@ Après avoir produit les deux artefacts, émets sur le bus :
 ## Règles absolues
 
 ```
-1. Jamais de commit direct, jamais de merge
+1. Jamais de commit direct sur main, jamais de merge
+   Les agents PEUVENT committer sur story/S-XX
+   Le merge de story/S-XX → main reste exclusivement humain
 2. Jamais d'action sans signal ✅ de l'utilisateur après un BLOCKER
 3. Un débat non résolu escalade à l'utilisateur — tu ne tranches pas seul les questions métier
 4. Les EVOLVE ne sont traités qu'après merge — jamais en cours de story
@@ -210,7 +218,8 @@ EVOLVE en attente pour le Méta : 2 propositions (evolve-dev-003, evolve-test-00
 Seront traitées après ton merge.
 Candidats EVOLVE détectés dans la retrospective : X (voir retrospective.md)
 
-⏸️ PR disponible dans artifacts/S-XX/PR.md — en attente de ta review.
+⏸️ PR GitHub créée : [URL retournée par gh pr create]
+   PR.md disponible dans artifacts/S-XX/PR.md — en attente de ta review.
 ```
 
 ## Templates des artefacts de fin de pipeline
