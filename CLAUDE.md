@@ -17,9 +17,9 @@ Cibles : macOS (`.app`/`.dmg`) · Windows (`.exe`/`.msi`)
 npm run tauri dev                    # dev avec hot-reload
 npm run tauri build                  # build prod
 npx tsc --noEmit                     # type-check frontend
-cd src-tauri && cargo check          # compile Rust sans build
-cd src-tauri && cargo clippy         # lint Rust
-cd src-tauri && cargo test           # tests Rust
+cd core && cargo check               # compile Rust sans build
+cd core && cargo clippy              # lint Rust
+cd core && cargo test                # tests Rust
 npm run test                         # tests frontend (Vitest)
 ```
 
@@ -28,7 +28,7 @@ npm run test                         # tests frontend (Vitest)
 Ce projet utilise un réseau d'agents spécialisés qui interagissent via un bus de messages.
 
 ```
-agents/
+workflow/agents/
 ├── PROTOCOL.md          # Protocole bus — LIRE EN PREMIER
 ├── 00_orchestrator.md   # Pilote le réseau, route les interactions
 ├── 01_architect.md      # Plan technique + ADR
@@ -44,19 +44,19 @@ agents/
 
 ```bash
 # Démarrer l'orchestrateur sur une story
-claude --system-prompt agents/00_orchestrator.md \
-       --input artifacts/S-XX/story.md
+claude --system-prompt workflow/agents/00_orchestrator.md \
+       --input workflow/artifacts/S-XX/story.md
 
 # Lancer un agent seul (debug / relance)
-claude --system-prompt agents/01_architect.md \
-       --input artifacts/S-XX/story.md \
-       --output artifacts/S-XX/arch_plan.md
+claude --system-prompt workflow/agents/01_architect.md \
+       --input workflow/artifacts/S-XX/story.md \
+       --output workflow/artifacts/S-XX/arch_plan.md
 ```
 
 ### Structure des artefacts par story
 
 ```
-artifacts/S-XX/
+workflow/artifacts/S-XX/
 ├── story.md                  # fournie par toi
 ├── agent-bus.jsonl           # bus append-only de la story
 ├── pipeline_state.json       # état maintenu par l'orchestrateur
@@ -75,7 +75,7 @@ artifacts/S-XX/
 ### Évolution des prompts
 
 ```
-prompt_pr/
+workflow/prompt_pr/
 └── PPR-XX.md    # PR de prompt produite par le Méta, à valider par toi
 ```
 
@@ -85,7 +85,7 @@ prompt_pr/
 JAMAIS de commit direct sur main
 JAMAIS de merge (le merge story → main reste humain)
 Les agents PEUVENT committer sur story/S-XX et créer des PRs GitHub
-JAMAIS de modification de agents/*.md sans PPR validée par toi
+JAMAIS de modification de workflow/agents/*.md sans PPR validée par toi
 TOUJOURS attendre ✅ après un BLOCKER
 ```
 

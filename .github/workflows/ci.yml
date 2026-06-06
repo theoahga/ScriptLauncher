@@ -33,20 +33,20 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+            core/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('core/Cargo.lock') }}
 
       - name: Rust check
-        if: hashFiles('src-tauri/Cargo.toml') != ''
-        run: cd src-tauri && cargo check
+        if: hashFiles('core/Cargo.toml') != ''
+        run: cd core && cargo check
 
       - name: Rust clippy
-        if: hashFiles('src-tauri/Cargo.toml') != ''
-        run: cd src-tauri && cargo clippy -- -D warnings
+        if: hashFiles('core/Cargo.toml') != ''
+        run: cd core && cargo clippy -- -D warnings
 
       - name: Rust tests
-        if: hashFiles('src-tauri/Cargo.toml') != ''
-        run: cd src-tauri && cargo test
+        if: hashFiles('core/Cargo.toml') != ''
+        run: cd core && cargo test
 
   frontend:
     runs-on: ubuntu-latest
