@@ -67,7 +67,9 @@ artifacts/S-XX/
 ├── tests/                    # Test Writer
 ├── test_report.md
 ├── review.md                 # Reviewer — audit interne
-└── PR.md                     # Reviewer — PR pour toi
+├── PR.md                     # Reviewer — PR pour toi
+├── pipeline_report.md        # Orchestrateur — télémétrie (tokens, coût, durée)
+└── retrospective.md          # Orchestrateur — analyse workflow + candidats EVOLVE
 ```
 
 ### Évolution des prompts
@@ -103,7 +105,7 @@ TOUJOURS attendre ✅ après un BLOCKER
 
 | Agent | Version | Dernière PPR |
 |-------|---------|-------------|
-| orchestrator | 2.0 | — |
+| orchestrator | 2.2 | PPR-02 |
 | architect | 1.0 | — |
 | dev | 1.0 | — |
 | modernizer | 1.0 | — |
