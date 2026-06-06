@@ -4,10 +4,11 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  rust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Install Linux system dependencies
         run: |
           sudo apt-get update
@@ -20,10 +21,12 @@ jobs:
             libdbus-1-dev \
             libssl-dev \
             patchelf
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+
       - name: Cache Rust
         uses: actions/cache@v4
         with:
@@ -32,20 +35,36 @@ jobs:
             ~/.cargo/git
             src-tauri/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      - name: Rust check
+        if: hashFiles('src-tauri/Cargo.toml') != ''
+        run: cd src-tauri && cargo check
+
+      - name: Rust clippy
+        if: hashFiles('src-tauri/Cargo.toml') != ''
+        run: cd src-tauri && cargo clippy -- -D warnings
+
+      - name: Rust tests
+        if: hashFiles('src-tauri/Cargo.toml') != ''
+        run: cd src-tauri && cargo test
+
+  frontend:
+    runs-on: ubuntu-latest
+    if: hashFiles('package.json') != ''
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+
       - name: Install deps
         run: npm ci
+
       - name: Type check
         run: npx tsc --noEmit
-      - name: Rust check
-        run: cd src-tauri && cargo check
-      - name: Rust clippy
-        run: cd src-tauri && cargo clippy -- -D warnings
-      - name: Rust tests
-        run: cd src-tauri && cargo test
+
       - name: Frontend tests
         run: npm run test -- --run
