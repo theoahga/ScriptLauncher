@@ -10,16 +10,16 @@ Application desktop pour lancer des scripts depuis un dossier local.
 
 ScriptLauncher permet de sélectionner un dossier, de lister les scripts qu'il contient, et de les lancer d'un clic depuis une interface graphique native.
 
-### État actuel (S-01)
+### État actuel (S-02)
 
-L'application est initialisée et se lance. Elle affiche une fenêtre avec le message **"Hello ScriptLauncher"**. Aucune fonctionnalité métier n'est encore implémentée.
+L'application se lance et expose une commande backend pour lister les scripts d'un dossier. L'interface affiche encore "Hello ScriptLauncher" — la connexion UI arrive en S-05/S-06.
 
 ### Roadmap
 
 | Story | Fonctionnalité |
 |-------|---------------|
 | S-01 ✅ | Initialisation — fenêtre de base |
-| S-02 | Lecture du système de fichiers (`file_system.rs`) |
+| S-02 ✅ | Lecture du système de fichiers (`file_system.rs`) |
 | S-03 | Exécution de scripts (`script_runner.rs`) |
 | S-04 | Configuration Tauri + permissions |
 | S-05 | Sélection de dossier (`FolderSelector`) |
@@ -66,6 +66,42 @@ ScriptLauncher/
 ├── package.json
 └── vite.config.ts
 ```
+
+### S-02 · Backend file_system.rs
+
+**Fonctionnel**
+- Le backend peut lister tous les scripts d'un dossier donné.
+- Seuls les fichiers avec une extension reconnue sont retournés : `.sh` `.py` `.js` `.ts` `.ps1` `.bat` `.cmd` `.rb` `.fish`
+- Les résultats sont triés par nom, insensible à la casse.
+
+**Fichiers ajoutés/modifiés**
+
+| Fichier | Rôle |
+|---------|------|
+| `core/src/file_system.rs` | Module Rust — logique de lecture de dossier + filtrage par extension |
+| `core/src/lib.rs` | Enregistrement de la commande Tauri `list_scripts` |
+
+**Commande IPC exposée**
+
+```
+list_scripts(folder: String) → Result<Vec<ScriptInfo>, String>
+```
+
+```rust
+struct ScriptInfo {
+    name: String,       // nom du fichier
+    path: String,       // chemin absolu canonicalisé
+    extension: String,  // extension sans point, en minuscules
+}
+```
+
+**Décisions notables**
+- `fs::canonicalize` pour garantir un chemin absolu (portable macOS/Windows).
+- Extensions comparées en minuscules — `DEPLOY.SH` est reconnu.
+- Entrées individuellement illisibles ignorées silencieusement (robustesse CI).
+- `std::fs` uniquement — pas de plugin Tauri filesystem (ajouté en S-04 si besoin).
+
+---
 
 ### Architecture Rust (pattern Tauri 2)
 
