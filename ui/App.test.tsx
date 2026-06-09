@@ -2,14 +2,16 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
+// Mock @tauri-apps/plugin-dialog (utilisé par FolderSelector)
+vi.mock('@tauri-apps/plugin-dialog', () => ({
+  open: vi.fn(),
+}));
 
 describe('App', () => {
-  it('rend le titre Hello ScriptLauncher', () => {
+  it('rend le composant FolderSelector avec le bouton de sélection', () => {
     render(<App />);
-    const heading = screen.getByRole('heading', { level: 1 });
-    expect(heading).toBeInTheDocument();
-    expect(heading).toHaveTextContent('Hello ScriptLauncher');
+    const button = screen.getByRole('button', { name: 'Sélectionner un dossier' });
+    expect(button).toBeInTheDocument();
   });
 
   it('snapshot du rendu initial', () => {
