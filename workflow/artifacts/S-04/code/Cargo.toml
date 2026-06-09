@@ -11,7 +11,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tauri-plugin-dialog = "2"
+tauri-plugin-dialog = "2"    # ajout S-04 — anticipation S-05 (ADR-01)
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
