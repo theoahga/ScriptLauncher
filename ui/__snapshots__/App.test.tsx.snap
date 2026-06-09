@@ -4,8 +4,24 @@ exports[`App > snapshot du rendu initial 1`] = `
 <div
   class="app"
 >
-  <h1>
-    Hello ScriptLauncher
-  </h1>
+  <div
+    class="folder-selector"
+  >
+    <button
+      class="folder-selector__button"
+      type="button"
+    >
+      Sélectionner un dossier
+    </button>
+  </div>
+  <div
+    class="script-list"
+  >
+    <p
+      class="script-list__empty"
+    >
+      Aucun dossier sélectionné
+    </p>
+  </div>
 </div>
 `;

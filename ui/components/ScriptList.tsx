@@ -13,7 +13,7 @@ export default function ScriptList({
   onScriptSelected,
 }: ScriptListProps): JSX.Element {
   const [scripts, setScripts] = useState<ScriptInfo[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,11 +37,13 @@ export default function ScriptList({
         });
         if (!cancelled) {
           setScripts(result);
-          setLoading(false);
         }
       } catch (err) {
         if (!cancelled) {
           setError(String(err));
+        }
+      } finally {
+        if (!cancelled) {
           setLoading(false);
         }
       }
