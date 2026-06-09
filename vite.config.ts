@@ -20,6 +20,6 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./ui/test/setup.ts"],
-    exclude: ["**/node_modules/**", "**/dist/**", "artifacts/**"],
+    exclude: ["**/node_modules/**", "**/dist/**", "artifacts/**", "workflow/**"],
   },
 });
