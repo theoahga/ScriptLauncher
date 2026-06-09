@@ -1,0 +1,79 @@
+/* ScriptList — composant liste des scripts */
+
+.script-list {
+  width: 100%;
+  max-width: 600px;
+  margin-top: 1.5rem;
+}
+
+.script-list__empty {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.script-list__loading {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  text-align: center;
+  padding: 1rem 0;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.script-list__error {
+  color: #ff5555;
+  font-size: 0.875rem;
+  padding: 0.75rem 1rem;
+  background-color: rgba(255, 85, 85, 0.08);
+  border: 1px solid rgba(255, 85, 85, 0.3);
+  border-radius: 4px;
+}
+
+.script-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.script-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 1rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color 0.1s ease;
+}
+
+.script-list__item:last-child {
+  border-bottom: none;
+}
+
+.script-list__item:hover {
+  background-color: var(--color-surface);
+}
+
+.script-list__item-name {
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.script-list__item-ext {
+  color: var(--color-accent);
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+  flex-shrink: 0;
+}
