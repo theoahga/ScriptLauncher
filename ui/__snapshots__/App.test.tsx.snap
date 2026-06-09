@@ -23,5 +23,14 @@ exports[`App > snapshot du rendu initial 1`] = `
       Aucun dossier sélectionné
     </p>
   </div>
+  <div
+    class="script-executor"
+  >
+    <p
+      class="script-executor__empty"
+    >
+      Aucun script sélectionné
+    </p>
+  </div>
 </div>
 `;

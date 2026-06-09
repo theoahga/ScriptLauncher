@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ScriptInfo, ScriptOutput } from "../types";
 import "./ScriptExecutor.css";
@@ -15,18 +15,24 @@ export default function ScriptExecutor({
   const [isRunning, setIsRunning] = useState(false);
 
   // ADR-01 : reset des états quand le script sélectionné change
-  // ADR-06 : variable cancelled pour ignorer les résultats d'invocations obsolètes
+  // ADR-06 : ref pour annuler les invocations obsolètes
+  const cancelledRef = useRef(false);
+
   useEffect(() => {
+    cancelledRef.current = false;
     setOutput(null);
     setError(null);
     setIsRunning(false);
+
+    return () => {
+      cancelledRef.current = true;
+    };
   }, [script]);
 
   const handleRun = useCallback(async () => {
     if (script === null) return;
 
-    let cancelled = false;
-
+    cancelledRef.current = false;
     setIsRunning(true);
     setOutput(null);
     setError(null);
@@ -35,22 +41,18 @@ export default function ScriptExecutor({
       const result = await invoke<ScriptOutput>("run_script", {
         path: script.path,
       });
-      if (!cancelled) {
+      if (!cancelledRef.current) {
         setOutput(result);
       }
     } catch (err) {
-      if (!cancelled) {
+      if (!cancelledRef.current) {
         setError(String(err));
       }
     } finally {
-      if (!cancelled) {
+      if (!cancelledRef.current) {
         setIsRunning(false);
       }
     }
-
-    return () => {
-      cancelled = true;
-    };
   }, [script]);
 
   if (script === null) {
