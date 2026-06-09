@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
 interface FolderSelectorProps {
@@ -10,7 +10,7 @@ export default function FolderSelector({
 }: FolderSelectorProps): JSX.Element {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
 
-  const handleClick = async () => {
+  const handleClick = useCallback(async () => {
     try {
       const result = await open({ directory: true });
       if (result !== null) {
@@ -20,11 +20,15 @@ export default function FolderSelector({
     } catch (err) {
       console.error("Erreur lors de l'ouverture de la dialog :", err);
     }
-  };
+  }, [onFolderSelected]);
 
   return (
     <div className="folder-selector">
-      <button className="folder-selector__button" onClick={handleClick}>
+      <button
+        type="button"
+        className="folder-selector__button"
+        onClick={handleClick}
+      >
         Sélectionner un dossier
       </button>
       {selectedPath !== null && (
