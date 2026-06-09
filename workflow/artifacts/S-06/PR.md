@@ -63,3 +63,5 @@ npm run tauri dev
 Merge cette PR ou retours correctifs ?
 
 ⏸️ En attente de ta review. Aucune action sans ton accord.
+
+PR GitHub : https://github.com/theoahga/ScriptLauncher/pull/15
