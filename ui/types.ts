@@ -11,3 +11,12 @@ export interface ScriptInfo {
   /** Extension sans point (ex: "sh", "py", "js") */
   extension: string;
 }
+
+export interface ScriptOutput {
+  /** Sortie standard du script */
+  stdout: string;
+  /** Sortie d'erreur du script */
+  stderr: string;
+  /** Code de retour (0 = succès, !=0 = erreur, -1 = tué par signal) */
+  exit_code: number;
+}

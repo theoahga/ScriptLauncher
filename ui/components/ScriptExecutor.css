@@ -1,0 +1,124 @@
+/* ScriptExecutor — thème sombre terminal-inspired */
+
+.script-executor {
+  padding: 1rem;
+  border-top: 1px solid var(--color-border, #2a2a2a);
+}
+
+.script-executor__empty {
+  color: var(--color-text-muted, #666);
+  font-style: italic;
+  margin: 0;
+}
+
+.script-executor__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.script-executor__script-name {
+  font-weight: 600;
+  color: var(--color-text, #e0e0e0);
+  font-family: var(--font-mono, monospace);
+}
+
+.script-executor__run-btn {
+  padding: 0.4rem 0.9rem;
+  background-color: var(--color-accent, #4a9eff);
+  color: var(--color-btn-text, #fff);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.script-executor__run-btn:hover:not(:disabled) {
+  background-color: var(--color-accent-hover, #3a8eef);
+}
+
+.script-executor__run-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.script-executor__error {
+  color: var(--color-error, #ff6b6b);
+  background-color: var(--color-error-bg, #2a1a1a);
+  border: 1px solid var(--color-error-border, #5c2a2a);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  margin: 0.5rem 0;
+  font-size: 0.875rem;
+  font-family: var(--font-mono, monospace);
+}
+
+.script-executor__output {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.script-executor__status {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.script-executor__status--success {
+  background-color: var(--color-success-bg, #1a2e1a);
+  color: var(--color-success, #4caf50);
+  border: 1px solid var(--color-success-border, #2a5c2a);
+}
+
+.script-executor__status--error {
+  background-color: var(--color-error-bg, #2a1a1a);
+  color: var(--color-error, #ff6b6b);
+  border: 1px solid var(--color-error-border, #5c2a2a);
+}
+
+.script-executor__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.script-executor__section-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted, #666);
+}
+
+.script-executor__stdout,
+.script-executor__stderr {
+  background-color: var(--color-terminal-bg, #0d0d0d);
+  border: 1px solid var(--color-border, #2a2a2a);
+  border-radius: 4px;
+  padding: 0.75rem;
+  margin: 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow-y: auto;
+  line-height: 1.5;
+}
+
+.script-executor__stdout {
+  color: var(--color-text, #e0e0e0);
+}
+
+.script-executor__stderr {
+  color: var(--color-warning, #ffb74d);
+  border-color: var(--color-warning-border, #3a2a1a);
+}
