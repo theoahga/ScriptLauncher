@@ -18,16 +18,17 @@ function formatDuration(ms: number): string {
   return `${ms}ms`;
 }
 
+const DATE_FORMAT_OPTIONS = {
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+} as const satisfies Intl.DateTimeFormatOptions;
+
 /** Formate un timestamp ISO 8601 en date/heure locale courte */
 function formatDate(iso: string): string {
   try {
-    const date = new Date(iso);
-    return date.toLocaleString(undefined, {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return new Date(iso).toLocaleString(undefined, DATE_FORMAT_OPTIONS);
   } catch {
     return iso;
   }
