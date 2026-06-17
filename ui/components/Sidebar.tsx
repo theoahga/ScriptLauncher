@@ -1,8 +1,8 @@
-import React from "react";
+import type { ReactNode } from "react";
 import "./Sidebar.css";
 
 interface SidebarProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export default function Sidebar({ children }: SidebarProps): JSX.Element {
