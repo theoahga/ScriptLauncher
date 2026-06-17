@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { ScriptInfo } from "../types";
+import { ScriptInfo, HistoryEntry } from "../types";
 import "./ScriptExecutor.css";
 
 interface ScriptExecutorProps {
   script: ScriptInfo | null;
+  /** Appelé après chaque exécution terminée pour signaler à App.tsx de recharger l'historique */
+  onExecutionComplete?: () => void;
 }
 
 // Payloads des événements Tauri (S-10)
@@ -20,6 +22,7 @@ interface DonePayload {
 
 export default function ScriptExecutor({
   script,
+  onExecutionComplete,
 }: ScriptExecutorProps): JSX.Element {
   const [lines, setLines] = useState<string[]>([]);
   const [exitCode, setExitCode] = useState<number | null>(null);
@@ -33,6 +36,9 @@ export default function ScriptExecutor({
   // ADR-01 (S-07) : reset des états quand le script sélectionné change
   // ADR-06 (S-07) : ref pour annuler les invocations obsolètes
   const cancelledRef = useRef(false);
+
+  // S-11 : timestamp de début pour calculer duration_ms
+  const startTimeRef = useRef<number>(0);
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -60,6 +66,9 @@ export default function ScriptExecutor({
   const unlistenStdoutRef = useRef<(() => void) | undefined>(undefined);
   const unlistenDoneRef = useRef<(() => void) | undefined>(undefined);
 
+  // Ref pour capturer la liste de lignes dans le handler script-done (évite closure stale)
+  const linesRef = useRef<string[]>([]);
+
   useEffect(() => {
     if (!isRunning) return;
 
@@ -67,18 +76,44 @@ export default function ScriptExecutor({
       unlistenStdoutRef.current = await listen<StdoutPayload>(
         "script-stdout",
         (event) => {
-          setLines((prev) => [...prev, event.payload.line]);
+          setLines((prev) => {
+            const updated = [...prev, event.payload.line];
+            linesRef.current = updated;
+            return updated;
+          });
         },
       );
 
       unlistenDoneRef.current = await listen<DonePayload>(
         "script-done",
         (event) => {
-          setExitCode(event.payload.exit_code);
-          setStderrOutput(event.payload.stderr);
+          const { exit_code, stderr } = event.payload;
+          setExitCode(exit_code);
+          setStderrOutput(stderr);
           setIsRunning(false);
           unlistenStdoutRef.current?.();
           unlistenDoneRef.current?.();
+
+          // S-11 : persister l'exécution dans l'historique (ADR-S11-04)
+          if (script !== null && !cancelledRef.current) {
+            const duration_ms = Date.now() - startTimeRef.current;
+            const entry: HistoryEntry = {
+              id: crypto.randomUUID(),
+              script_name: script.name,
+              script_path: script.path,
+              started_at: new Date(startTimeRef.current).toISOString(),
+              duration_ms,
+              exit_code,
+              stdout: linesRef.current.join("\n"),
+              stderr,
+            };
+
+            invoke<void>("append_history", { entry }).catch((err) => {
+              console.error("[ScriptExecutor] append_history failed:", err);
+            });
+
+            onExecutionComplete?.();
+          }
         },
       );
     };
@@ -94,7 +129,7 @@ export default function ScriptExecutor({
       unlistenStdoutRef.current?.();
       unlistenDoneRef.current?.();
     };
-  }, [isRunning]);
+  }, [isRunning, script, onExecutionComplete]);
 
   const handleRun = useCallback(async () => {
     if (script === null) return;
@@ -102,9 +137,11 @@ export default function ScriptExecutor({
     cancelledRef.current = false;
     // ADR-05 : vider la zone output à chaque nouveau run
     setLines([]);
+    linesRef.current = [];
     setExitCode(null);
     setStderrOutput("");
     setError(null);
+    startTimeRef.current = Date.now();
     setIsRunning(true);
 
     try {

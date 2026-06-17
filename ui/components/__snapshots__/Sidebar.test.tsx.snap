@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Sidebar > snapshot du rendu avec un enfant 1`] = `
+<aside
+  class="sidebar"
+>
+  <p>
+    Snapshot content
+  </p>
+</aside>
+`;

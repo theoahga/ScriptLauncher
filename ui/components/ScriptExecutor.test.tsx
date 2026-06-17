@@ -90,7 +90,7 @@ describe("ScriptExecutor — S-10 streaming", () => {
     let stdoutHandler: ((event: { payload: { line: string } }) => void) | undefined;
 
     vi.mocked(listen).mockImplementation(
-      async (event: string, handler: (e: unknown) => void) => {
+      async (event: string, handler: Parameters<typeof listen>[1]) => {
         if (event === "script-stdout") {
           stdoutHandler = handler as (event: { payload: { line: string } }) => void;
         }
@@ -124,7 +124,7 @@ describe("ScriptExecutor — S-10 streaming", () => {
     let doneHandler: ((event: { payload: { exit_code: number; stderr: string } }) => void) | undefined;
 
     vi.mocked(listen).mockImplementation(
-      async (event: string, handler: (e: unknown) => void) => {
+      async (event: string, handler: Parameters<typeof listen>[1]) => {
         if (event === "script-stdout") stdoutHandler = handler as typeof stdoutHandler;
         if (event === "script-done") doneHandler = handler as typeof doneHandler;
         return () => {};
@@ -169,7 +169,7 @@ describe("ScriptExecutor — S-10 streaming", () => {
     let doneHandler: ((event: { payload: { exit_code: number; stderr: string } }) => void) | undefined;
 
     vi.mocked(listen).mockImplementation(
-      async (event: string, handler: (e: unknown) => void) => {
+      async (event: string, handler: Parameters<typeof listen>[1]) => {
         if (event === "script-done") doneHandler = handler as typeof doneHandler;
         return () => {};
       },
@@ -214,7 +214,7 @@ describe("ScriptExecutor — S-10 streaming", () => {
     let stdoutHandler: ((event: { payload: { line: string } }) => void) | undefined;
 
     vi.mocked(listen).mockImplementation(
-      async (event: string, handler: (e: unknown) => void) => {
+      async (event: string, handler: Parameters<typeof listen>[1]) => {
         if (event === "script-stdout") stdoutHandler = handler as typeof stdoutHandler;
         return () => {};
       },
@@ -242,7 +242,7 @@ describe("ScriptExecutor — S-10 streaming", () => {
     let doneHandler: ((event: { payload: { exit_code: number; stderr: string } }) => void) | undefined;
 
     vi.mocked(listen).mockImplementation(
-      async (event: string, handler: (e: unknown) => void) => {
+      async (event: string, handler: Parameters<typeof listen>[1]) => {
         if (event === "script-done") doneHandler = handler as typeof doneHandler;
         return () => {};
       },
