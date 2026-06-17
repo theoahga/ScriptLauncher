@@ -1,6 +1,8 @@
+mod config;
 mod file_system;
 mod script_runner;
 
+use config::{get_config, save_config};
 use file_system::list_scripts;
 use script_runner::run_script;
 
@@ -12,10 +14,11 @@ use script_runner::run_script;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![list_scripts, run_script])
+        .invoke_handler(tauri::generate_handler![list_scripts, run_script, get_config, save_config])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
 
 #[cfg(test)]
 mod config_tests {

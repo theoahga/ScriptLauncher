@@ -1,21 +1,15 @@
 import { useState, useCallback } from "react";
 import "./App.css";
 import Sidebar from "./components/Sidebar";
-import FolderSelector from "./components/FolderSelector";
-import ScriptList from "./components/ScriptList";
+import CategoryManager from "./components/CategoryManager";
 import ScriptExecutor from "./components/ScriptExecutor";
 import { ScriptInfo } from "./types";
 
 export default function App(): JSX.Element {
-  const [folderPath, setFolderPath] = useState<string | null>(null);
   const [selectedScript, setSelectedScript] = useState<ScriptInfo | null>(null);
 
-  // ADR-05 (S-07) : reset du script sélectionné quand le dossier change
-  const handleFolderSelected = useCallback((path: string) => {
-    setFolderPath(path);
-    setSelectedScript(null);
-  }, []);
-
+  // ADR-04 (S-09) : CategoryManager gère la config en interne.
+  // App.tsx ne connaît que le script sélectionné.
   const handleScriptSelected = useCallback((script: ScriptInfo) => {
     setSelectedScript(script);
   }, []);
@@ -23,11 +17,7 @@ export default function App(): JSX.Element {
   return (
     <div className="app-shell">
       <Sidebar>
-        <FolderSelector onFolderSelected={handleFolderSelected} />
-        <ScriptList
-          folderPath={folderPath}
-          onScriptSelected={handleScriptSelected}
-        />
+        <CategoryManager onScriptSelected={handleScriptSelected} />
       </Sidebar>
       <main className="main-panel">
         <ScriptExecutor script={selectedScript} />
