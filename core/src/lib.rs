@@ -1,7 +1,9 @@
 mod file_system;
+mod history;
 mod script_runner;
 
 use file_system::list_scripts;
+use history::{append_history, clear_history, get_history};
 use script_runner::{kill_script, run_script, run_script_stream, ScriptProcess};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -19,7 +21,10 @@ pub fn run() {
             list_scripts,
             run_script,
             run_script_stream,
-            kill_script
+            kill_script,
+            append_history,
+            get_history,
+            clear_history
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

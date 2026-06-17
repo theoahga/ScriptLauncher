@@ -55,3 +55,33 @@ h1 {
   letter-spacing: 0.05em;
   text-shadow: 0 0 20px var(--color-accent-dim);
 }
+
+/* ── Tabs S-11 ─────────────────────────────────────────────────────────── */
+.main-panel__tabs {
+  display: flex;
+  flex-direction: row;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.main-panel__tab {
+  padding: 0.4rem 1rem;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  letter-spacing: 0.03em;
+}
+
+.main-panel__tab:hover {
+  color: var(--color-text-primary);
+}
+
+.main-panel__tab--active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}

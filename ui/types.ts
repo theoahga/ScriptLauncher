@@ -20,3 +20,22 @@ export interface ScriptOutput {
   /** Code de retour (0 = succès, !=0 = erreur, -1 = tué par signal) */
   exit_code: number;
 }
+
+export interface HistoryEntry {
+  /** UUID v4 généré côté frontend via crypto.randomUUID() */
+  id: string;
+  /** Nom du fichier script (ex: "deploy.sh") */
+  script_name: string;
+  /** Chemin absolu du script */
+  script_path: string;
+  /** Timestamp de début d'exécution (ISO 8601) */
+  started_at: string;
+  /** Durée d'exécution en millisecondes */
+  duration_ms: number;
+  /** Code de retour (0 = succès, !=0 = erreur, -1 = tué par signal) */
+  exit_code: number;
+  /** Sortie standard capturée */
+  stdout: string;
+  /** Sortie d'erreur capturée */
+  stderr: string;
+}
