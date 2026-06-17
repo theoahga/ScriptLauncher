@@ -4,9 +4,7 @@ mod script_runner;
 
 use config::{get_config, save_config};
 use file_system::list_scripts;
-use script_runner::{kill_script, run_script, run_script_stream, ScriptProcess};
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use script_runner::run_script;
 
 /// Lance l'application Tauri.
 ///
@@ -16,13 +14,7 @@ use tokio::sync::Mutex;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![
-            list_scripts,
-            run_script,
-            get_config,
-            save_config,run_script_stream,
-            kill_script
-        ])
+        .invoke_handler(tauri::generate_handler![list_scripts, run_script, get_config, save_config])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

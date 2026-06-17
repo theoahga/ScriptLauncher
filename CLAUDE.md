@@ -100,7 +100,10 @@ TOUJOURS attendre ✅ après un BLOCKER
 | S-05 · FolderSelector.tsx | ⬜ | |
 | S-06 · ScriptList.tsx | ⬜ | |
 | S-07 · ScriptExecutor.tsx | ⬜ | |
-| S-08 · App layout + styles | ⬜ | |
+| S-08 · App layout (sidebar + panel) | 🔁 | PR #17 — en attente de merge |
+| S-09 · Config système + arborescence | 🔁 | PR #19 — en attente de merge |
+| S-10 · Streaming stdout + Stop | 🔁 | PR #18 — en attente de merge |
+| S-11 · Historique des exécutions | 🔁 | PR #20 — en attente de merge |
 
 ## Versions des prompts
 
