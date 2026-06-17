@@ -27,7 +27,7 @@ use std::path::PathBuf;
 use std::process::{Command, Output};
 use std::sync::Arc;
 use tauri::Emitter;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command as TokioCommand;
 use tokio::sync::Mutex;
 
@@ -327,7 +327,7 @@ pub async fn run_script_stream(
 
         // Collecter stderr en bloc
         let mut stderr_buf = String::new();
-        let _ = stderr_reader.read_to_string(&mut stderr_buf).await;
+        let _ = tokio::io::AsyncReadExt::read_to_string(&mut stderr_reader, &mut stderr_buf).await;
 
         // Attendre la fin du process et récupérer le exit code
         let exit_code = {

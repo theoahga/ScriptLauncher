@@ -1,0 +1,34 @@
+{
+  "story_id": "S-10",
+  "story_title": "Streaming stdout temps-réel + bouton Stop",
+  "status": "in_progress",
+  "active_agents": ["arch"],
+  "active_threads": [],
+  "artifacts": {
+    "story":           "artifacts/S-10/story.md",
+    "arch_plan":       "artifacts/S-10/arch_plan.md",
+    "code":            "artifacts/S-10/code/",
+    "modernized":      "artifacts/S-10/modernized/",
+    "tests":           "artifacts/S-10/tests/",
+    "review":          "artifacts/S-10/review.md",
+    "pr":              "artifacts/S-10/PR.md",
+    "pipeline_report": "artifacts/S-10/pipeline_report.md",
+    "retrospective":   "artifacts/S-10/retrospective.md"
+  },
+  "steps_completed": [],
+  "blockers": [],
+  "pending_evolve": [],
+  "metrics": {
+    "pipeline_start_ts": "2026-06-17T00:00:00Z",
+    "pipeline_end_ts": null,
+    "agents": {
+      "arch":       { "start_ts": "2026-06-17T00:00:00Z", "end_ts": null, "tokens_in": null, "tokens_out": null },
+      "dev":        { "start_ts": null, "end_ts": null, "tokens_in": null, "tokens_out": null },
+      "modernizer": { "start_ts": null, "end_ts": null, "tokens_in": null, "tokens_out": null },
+      "test":       { "start_ts": null, "end_ts": null, "tokens_in": null, "tokens_out": null },
+      "reviewer":   { "start_ts": null, "end_ts": null, "tokens_in": null, "tokens_out": null }
+    },
+    "blocker_count": 0,
+    "interaction_count": 0
+  }
+}

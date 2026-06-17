@@ -55,32 +55,24 @@ export default function ScriptExecutor({
   }, [lines]);
 
   // ADR-03 : listeners Tauri avec cleanup dans useEffect
-  // Les unlisten sont stockés dans refs pour être accessibles dans le handler script-done
-  // et dans le cleanup useEffect sans capture de closure stale.
-  const unlistenStdoutRef = useRef<(() => void) | undefined>(undefined);
-  const unlistenDoneRef = useRef<(() => void) | undefined>(undefined);
-
   useEffect(() => {
     if (!isRunning) return;
 
-    const setupListeners = async () => {
-      unlistenStdoutRef.current = await listen<StdoutPayload>(
-        "script-stdout",
-        (event) => {
-          setLines((prev) => [...prev, event.payload.line]);
-        },
-      );
+    let unlistenStdout: (() => void) | undefined;
+    let unlistenDone: (() => void) | undefined;
 
-      unlistenDoneRef.current = await listen<DonePayload>(
-        "script-done",
-        (event) => {
-          setExitCode(event.payload.exit_code);
-          setStderrOutput(event.payload.stderr);
-          setIsRunning(false);
-          unlistenStdoutRef.current?.();
-          unlistenDoneRef.current?.();
-        },
-      );
+    const setupListeners = async () => {
+      unlistenStdout = await listen<StdoutPayload>("script-stdout", (event) => {
+        setLines((prev) => [...prev, event.payload.line]);
+      });
+
+      unlistenDone = await listen<DonePayload>("script-done", (event) => {
+        setExitCode(event.payload.exit_code);
+        setStderrOutput(event.payload.stderr);
+        setIsRunning(false);
+        unlistenStdout?.();
+        unlistenDone?.();
+      });
     };
 
     setupListeners().catch((err) => {
@@ -91,8 +83,8 @@ export default function ScriptExecutor({
     });
 
     return () => {
-      unlistenStdoutRef.current?.();
-      unlistenDoneRef.current?.();
+      unlistenStdout?.();
+      unlistenDone?.();
     };
   }, [isRunning]);
 
