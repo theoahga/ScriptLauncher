@@ -12,7 +12,7 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import ScriptList from "./ScriptList";
-import { AppConfig, Category, ScriptInfo } from "../types";
+import type { AppConfig, Category, ScriptInfo } from "../types";
 import "./CategoryManager.css";
 
 interface CategoryManagerProps {
@@ -45,11 +45,10 @@ export default function CategoryManager({
         if (!cancelled) {
           setConfig(result);
           // Initialiser toutes les catégories comme dépliées (expanded)
-          const initialCollapsed: Record<string, boolean> = {};
-          for (const cat of result.categories) {
-            initialCollapsed[cat.id] = false; // false = expanded
-          }
-          setCollapsed(initialCollapsed);
+          // Modernizer: Object.fromEntries + map idiomatique (pas de mutation)
+          setCollapsed(
+            Object.fromEntries(result.categories.map((cat) => [cat.id, false]))
+          );
         }
       } catch (err) {
         if (!cancelled) {
@@ -226,6 +225,7 @@ export default function CategoryManager({
               if (e.key === "Enter" || e.key === " ") handleToggle(category.id);
             }}
             aria-expanded={!collapsed[category.id]}
+            aria-label={`Catégorie ${category.name}`}
           >
             <span className="category-manager__chevron">
               {collapsed[category.id] ? "▶" : "▼"}
