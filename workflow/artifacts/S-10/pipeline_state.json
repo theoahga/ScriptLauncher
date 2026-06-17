@@ -1,8 +1,8 @@
 {
   "story_id": "S-10",
   "story_title": "Streaming stdout temps-réel + bouton Stop",
-  "status": "in_progress",
-  "active_agents": ["arch"],
+  "status": "done",
+  "active_agents": [],
   "active_threads": [],
   "artifacts": {
     "story":           "artifacts/S-10/story.md",
@@ -15,18 +15,18 @@
     "pipeline_report": "artifacts/S-10/pipeline_report.md",
     "retrospective":   "artifacts/S-10/retrospective.md"
   },
-  "steps_completed": [],
+  "steps_completed": ["arch", "dev", "modernizer", "test", "reviewer", "close"],
   "blockers": [],
-  "pending_evolve": [],
+  "pending_evolve": ["evolve-orch-01", "evolve-test-01"],
   "metrics": {
     "pipeline_start_ts": "2026-06-17T00:00:00Z",
-    "pipeline_end_ts": null,
+    "pipeline_end_ts": "2026-06-17T00:40:00Z",
     "agents": {
-      "arch":       { "start_ts": "2026-06-17T00:00:00Z", "end_ts": null, "tokens_in": null, "tokens_out": null },
-      "dev":        { "start_ts": null, "end_ts": null, "tokens_in": null, "tokens_out": null },
-      "modernizer": { "start_ts": null, "end_ts": null, "tokens_in": null, "tokens_out": null },
-      "test":       { "start_ts": null, "end_ts": null, "tokens_in": null, "tokens_out": null },
-      "reviewer":   { "start_ts": null, "end_ts": null, "tokens_in": null, "tokens_out": null }
+      "arch":       { "start_ts": "2026-06-17T00:00:00Z", "end_ts": "2026-06-17T00:05:00Z", "tokens_in": null, "tokens_out": null },
+      "dev":        { "start_ts": "2026-06-17T00:05:00Z", "end_ts": "2026-06-17T00:20:00Z", "tokens_in": null, "tokens_out": null },
+      "modernizer": { "start_ts": "2026-06-17T00:20:00Z", "end_ts": "2026-06-17T00:25:00Z", "tokens_in": null, "tokens_out": null },
+      "test":       { "start_ts": "2026-06-17T00:25:00Z", "end_ts": "2026-06-17T00:35:00Z", "tokens_in": null, "tokens_out": null },
+      "reviewer":   { "start_ts": "2026-06-17T00:35:00Z", "end_ts": "2026-06-17T00:40:00Z", "tokens_in": null, "tokens_out": null }
     },
     "blocker_count": 0,
     "interaction_count": 0
