@@ -1,6 +1,8 @@
+mod config;
 mod file_system;
 mod script_runner;
 
+use config::{get_config, save_config};
 use file_system::list_scripts;
 use script_runner::{kill_script, run_script, run_script_stream, ScriptProcess};
 use std::sync::Arc;
@@ -19,7 +21,9 @@ pub fn run() {
             list_scripts,
             run_script,
             run_script_stream,
-            kill_script
+            kill_script,
+            get_config,
+            save_config
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

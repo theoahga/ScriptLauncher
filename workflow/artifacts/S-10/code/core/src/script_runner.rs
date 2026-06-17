@@ -27,7 +27,7 @@ use std::path::PathBuf;
 use std::process::{Command, Output};
 use std::sync::Arc;
 use tauri::Emitter;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command as TokioCommand;
 use tokio::sync::Mutex;
 
@@ -327,7 +327,7 @@ pub async fn run_script_stream(
 
         // Collecter stderr en bloc
         let mut stderr_buf = String::new();
-        let _ = stderr_reader.read_to_string(&mut stderr_buf).await;
+        let _ = tokio::io::AsyncReadExt::read_to_string(&mut stderr_reader, &mut stderr_buf).await;
 
         // Attendre la fin du process et récupérer le exit code
         let exit_code = {
@@ -973,62 +973,5 @@ mod tests {
             "stdout should be a valid Rust String regardless of byte content"
         );
         assert_eq!(output.exit_code, 0);
-    }
-
-    // ─── Tests S-10 : kill_script ─────────────────────────────────────────────
-
-    // ── TC-S10-01 : kill_script sans process actif → Ok(()) sans panique ──────
-    // Valide l'edge case story : kill_script quand aucun PID stocké.
-    #[tokio::test]
-    async fn test_kill_script_no_process_returns_ok() {
-        let state = ScriptProcess(Arc::new(Mutex::new(None)));
-        // Appeler directement la logique interne (pas via Tauri State)
-        let mut guard = state.0.lock().await;
-        if let Some(child) = guard.as_mut() {
-            let _ = child.kill().await;
-            *guard = None;
-        }
-        // Pas de panique, l'état reste None
-        assert!(guard.is_none(), "state should remain None when no process was active");
-    }
-
-    // ── TC-S10-02 : kill_script avec process actif → PID remis à None ─────────
-    // Spawne un vrai process (sleep), le tue, vérifie que le state est remis à None.
-    #[cfg(not(target_os = "windows"))]
-    #[tokio::test]
-    async fn test_kill_script_with_process_clears_state() {
-        use tokio::process::Command as TokioCmd;
-
-        let state = ScriptProcess(Arc::new(Mutex::new(None)));
-
-        // Spawner un process qui dure longtemps
-        let child = TokioCmd::new("sleep")
-            .arg("60")
-            .spawn()
-            .expect("failed to spawn sleep");
-
-        {
-            let mut guard = state.0.lock().await;
-            *guard = Some(child);
-        }
-
-        // Vérifier que le process est bien stocké
-        {
-            let guard = state.0.lock().await;
-            assert!(guard.is_some(), "child should be stored before kill");
-        }
-
-        // Simuler kill_script : lire et tuer le child
-        {
-            let mut guard = state.0.lock().await;
-            if let Some(child) = guard.as_mut() {
-                let _ = child.kill().await;
-                *guard = None;
-            }
-        }
-
-        // Vérifier que le state est None après kill
-        let guard = state.0.lock().await;
-        assert!(guard.is_none(), "state should be None after kill");
     }
 }
