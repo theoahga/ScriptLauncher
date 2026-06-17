@@ -8,22 +8,12 @@ exports[`App > snapshot du rendu initial two-panel 1`] = `
     class="sidebar"
   >
     <div
-      class="folder-selector"
-    >
-      <button
-        class="folder-selector__button"
-        type="button"
-      >
-        Sélectionner un dossier
-      </button>
-    </div>
-    <div
-      class="script-list"
+      class="category-manager"
     >
       <p
-        class="script-list__empty"
+        class="category-manager__loading"
       >
-        Aucun dossier sélectionné
+        Chargement...
       </p>
     </div>
   </aside>

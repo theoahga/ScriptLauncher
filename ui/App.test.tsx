@@ -2,14 +2,14 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-// Mock @tauri-apps/plugin-dialog (utilisé par FolderSelector)
+// Mock @tauri-apps/plugin-dialog (utilisé par CategoryManager)
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: vi.fn(),
 }));
 
-// Mock @tauri-apps/api/core (utilisé par ScriptList et ScriptExecutor)
+// Mock @tauri-apps/api/core (utilisé par CategoryManager et ScriptExecutor)
 vi.mock('@tauri-apps/api/core', () => ({
-  invoke: vi.fn(),
+  invoke: vi.fn().mockResolvedValue({ categories: [] }),
 }));
 
 describe('App', () => {
@@ -20,14 +20,13 @@ describe('App', () => {
     expect(shell).toBeInTheDocument();
   });
 
-  // Cas 2 : sidebar visible avec le bouton FolderSelector
-  it('rend la sidebar avec le bouton de sélection de dossier', () => {
-    render(<App />);
-    const button = screen.getByRole('button', { name: 'Sélectionner un dossier' });
-    expect(button).toBeInTheDocument();
-    // Le bouton est bien dans l'aside.sidebar
-    const sidebar = button.closest('aside.sidebar');
+  // Cas 2 : sidebar visible avec CategoryManager (S-09 remplace FolderSelector)
+  it('rend la sidebar avec le CategoryManager', () => {
+    const { container } = render(<App />);
+    const sidebar = container.querySelector('aside.sidebar');
     expect(sidebar).toBeInTheDocument();
+    const categoryManager = sidebar?.querySelector('.category-manager');
+    expect(categoryManager).toBeInTheDocument();
   });
 
   // Cas 3 : panel droit visible avec ScriptExecutor
@@ -40,13 +39,17 @@ describe('App', () => {
     expect(mainPanel).toBeInTheDocument();
   });
 
-  // Cas 4 : ScriptList visible dans la sidebar
-  it('rend ScriptList dans la sidebar', () => {
-    render(<App />);
-    const emptyFolderMsg = screen.getByText('Aucun dossier sélectionné');
-    expect(emptyFolderMsg).toBeInTheDocument();
-    const sidebar = emptyFolderMsg.closest('aside.sidebar');
+  // Cas 4 : CategoryManager chargé dans la sidebar (S-09 — remplace ScriptList direct)
+  it('rend CategoryManager dans la sidebar (S-09)', async () => {
+    const { container } = render(<App />);
+    const sidebar = container.querySelector('aside.sidebar');
     expect(sidebar).toBeInTheDocument();
+    // Titre "Catégories" affiché par CategoryManager
+    const { waitFor } = await import('@testing-library/react');
+    await waitFor(() => {
+      const title = screen.queryByText('Chargement...') || container.querySelector('.category-manager');
+      expect(title).toBeInTheDocument();
+    });
   });
 
   // Cas 5 : snapshot du rendu initial (structure two-panel)
