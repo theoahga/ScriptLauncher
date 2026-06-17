@@ -18,11 +18,12 @@ use tokio::sync::Mutex;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .manage(ScriptProcess(Arc::new(Mutex::new(None))))
         .invoke_handler(tauri::generate_handler![
             list_scripts,
             run_script,
             get_config,
-            save_config
+            save_config,
             run_script_stream,
             kill_script,
             append_history,
