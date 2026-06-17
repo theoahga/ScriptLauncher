@@ -1,22 +1,35 @@
-// script_runner.rs — S-03 (modernisé)
+// script_runner.rs — S-03 (modernisé), S-10 (streaming)
 //
 // Commande Tauri `run_script` : exécute un script de façon bloquante et retourne
 // stdout, stderr et le code de retour.
 //
+// Commande Tauri `run_script_stream` : exécute un script de façon non-bloquante,
+// streame stdout ligne par ligne via événements Tauri `script-stdout`,
+// émet `script-done` à la fin. (S-10)
+//
+// Commande Tauri `kill_script` : interrompt le process en cours. (S-10)
+//
 // NOTE DE SÉCURITÉ (S-04) : cette commande nécessite la permission `shell:execute`
 // dans tauri.conf.json (à configurer en S-04, hors scope S-03).
 //
-// ADR-01 : commande synchrone via std::process::Command::output() — pas d'async.
-// ADR-02 : signal-killed → exit_code = -1 (pas une Err).
-// ADR-03 : interpréteur absent détecté via io::ErrorKind::NotFound.
-// ADR-04 : .ts essaie ts-node puis npx ts-node.
-// ADR-05 : chemin canonicalisé avant exécution, passé via Command::arg() (pas d'interpolation shell).
+// ADR-01 (S-03) : commande synchrone via std::process::Command::output() — pas d'async.
+// ADR-02 (S-03) : signal-killed → exit_code = -1 (pas une Err).
+// ADR-03 (S-03) : interpréteur absent détecté via io::ErrorKind::NotFound.
+// ADR-04 (S-03) : .ts essaie ts-node puis npx ts-node.
+// ADR-05 (S-03) : chemin canonicalisé avant exécution, passé via Command::arg() (pas d'interpolation shell).
+// ADR-S10-01 : run_script_stream spawne une tâche tokio et retourne Ok(()) immédiatement.
+// ADR-S10-02 : state stocke Child tokio (pas PID u32) pour kill cross-plateforme idiomatique.
 
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::process::{Command, Output};
+use std::sync::Arc;
+use tauri::Emitter;
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::process::Command as TokioCommand;
+use tokio::sync::Mutex;
 
 /// Résultat d'exécution d'un script.
 /// `exit_code` vaut -1 si le processus a été tué par un signal (ADR-02).
@@ -208,6 +221,163 @@ pub fn run_script(path: String) -> Result<ScriptOutput, String> {
         )),
         Err(e) => Err(format!("Failed to execute script: {e}")),
     }
+}
+
+// ─── State Tauri — process en cours (S-10) ────────────────────────────────────
+
+/// State Tauri partagé pour le process de streaming en cours.
+/// Stocke le `Child` tokio plutôt que le PID u32 (ADR-S10-02) :
+/// cela permet un kill cross-plateforme via `.kill().await` sans dépendance `nix`.
+pub struct ScriptProcess(pub Arc<Mutex<Option<tokio::process::Child>>>);
+
+/// Payload de l'événement `script-stdout` émis par ligne.
+#[derive(Debug, Serialize, Clone)]
+pub struct StdoutPayload {
+    pub line: String,
+}
+
+/// Payload de l'événement `script-done` émis à la fin du processus.
+#[derive(Debug, Serialize, Clone)]
+pub struct DonePayload {
+    pub exit_code: i32,
+    pub stderr: String,
+}
+
+/// Commande Tauri — exécute un script en streaming non-bloquant.
+///
+/// Retourne `Ok(())` immédiatement après avoir spawné la tâche tokio (ADR-S10-01).
+/// Les lignes stdout sont émises via l'événement `script-stdout`.
+/// La fin du processus est notifiée via `script-done`.
+///
+/// # Paramètres
+/// - `path`   : chemin absolu ou relatif vers le fichier script
+/// - `window` : handle Tauri pour émettre les événements
+/// - `state`  : state partagé pour stocker le process en cours
+#[tauri::command]
+pub async fn run_script_stream(
+    path: String,
+    window: tauri::Window,
+    state: tauri::State<'_, ScriptProcess>,
+) -> Result<(), String> {
+    // Canonicalisation du path (ADR-05 hérité)
+    let canonical_path = fs::canonicalize(&path)
+        .map_err(|_| format!("Path does not exist: {path}"))?;
+
+    if canonical_path.is_dir() {
+        return Err(format!("Path is not a file: {path}"));
+    }
+
+    let ext = canonical_path
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+
+    if ext.is_empty() {
+        return Err("Unsupported script extension: ''".to_string());
+    }
+
+    let interpreter = resolve_interpreter(&ext)?;
+
+    // Spawn non-bloquant avec stdout et stderr pipés
+    let mut cmd = TokioCommand::new(&interpreter.binary);
+    cmd.args(&interpreter.prefix_args)
+        .arg(&canonical_path)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+
+    let mut child = cmd.spawn().map_err(|e| {
+        if e.kind() == io::ErrorKind::NotFound {
+            format!(
+                "Interpreter not found: '{}' is not available on PATH",
+                interpreter.binary
+            )
+        } else {
+            format!("Failed to spawn process: {e}")
+        }
+    })?;
+
+    // Extraire stdout et stderr avant de stocker le child
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "Failed to capture stdout".to_string())?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| "Failed to capture stderr".to_string())?;
+
+    // Stocker le child dans le state (ADR-S10-02)
+    {
+        let mut guard = state.0.lock().await;
+        *guard = Some(child);
+    }
+
+    let state_arc = Arc::clone(&state.0);
+    let window_clone = window.clone();
+
+    // Spawner la tâche tokio de lecture (ADR-S10-01)
+    tokio::spawn(async move {
+        let mut stdout_reader = BufReader::new(stdout).lines();
+        let mut stderr_reader = BufReader::new(stderr);
+
+        // Lire stdout ligne par ligne et émettre script-stdout
+        while let Ok(Some(line)) = stdout_reader.next_line().await {
+            let _ = window_clone.emit("script-stdout", StdoutPayload { line });
+        }
+
+        // Collecter stderr en bloc
+        let mut stderr_buf = String::new();
+        let _ = tokio::io::AsyncReadExt::read_to_string(&mut stderr_reader, &mut stderr_buf).await;
+
+        // Attendre la fin du process et récupérer le exit code
+        let exit_code = {
+            let mut guard = state_arc.lock().await;
+            if let Some(child) = guard.as_mut() {
+                match child.wait().await {
+                    Ok(status) => status.code().unwrap_or(-1),
+                    Err(_) => -1,
+                }
+            } else {
+                // Process déjà tué via kill_script
+                -1
+            }
+        };
+
+        // Nettoyer le state
+        {
+            let mut guard = state_arc.lock().await;
+            *guard = None;
+        }
+
+        // Émettre script-done
+        let _ = window_clone.emit(
+            "script-done",
+            DonePayload {
+                exit_code,
+                stderr: stderr_buf,
+            },
+        );
+    });
+
+    Ok(())
+}
+
+/// Commande Tauri — interrompt le script en cours.
+///
+/// Si aucun process n'est actif (PID None), retourne `Ok(())` sans panique (edge case story).
+/// Après kill, le state est remis à `None`.
+#[tauri::command]
+pub async fn kill_script(state: tauri::State<'_, ScriptProcess>) -> Result<(), String> {
+    let mut guard = state.0.lock().await;
+    if let Some(child) = guard.as_mut() {
+        child
+            .kill()
+            .await
+            .map_err(|e| format!("Failed to kill process: {e}"))?;
+        *guard = None;
+    }
+    // Si None → pas de panique, retour Ok(()) silencieux
+    Ok(())
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
