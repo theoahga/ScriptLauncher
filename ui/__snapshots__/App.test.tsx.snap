@@ -1,36 +1,44 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`App > snapshot du rendu initial 1`] = `
+exports[`App > snapshot du rendu initial two-panel 1`] = `
 <div
-  class="app"
+  class="app-shell"
 >
-  <div
-    class="folder-selector"
+  <aside
+    class="sidebar"
   >
-    <button
-      class="folder-selector__button"
-      type="button"
+    <div
+      class="folder-selector"
     >
-      Sélectionner un dossier
-    </button>
-  </div>
-  <div
-    class="script-list"
+      <button
+        class="folder-selector__button"
+        type="button"
+      >
+        Sélectionner un dossier
+      </button>
+    </div>
+    <div
+      class="script-list"
+    >
+      <p
+        class="script-list__empty"
+      >
+        Aucun dossier sélectionné
+      </p>
+    </div>
+  </aside>
+  <main
+    class="main-panel"
   >
-    <p
-      class="script-list__empty"
+    <div
+      class="script-executor"
     >
-      Aucun dossier sélectionné
-    </p>
-  </div>
-  <div
-    class="script-executor"
-  >
-    <p
-      class="script-executor__empty"
-    >
-      Aucun script sélectionné
-    </p>
-  </div>
+      <p
+        class="script-executor__empty"
+      >
+        Aucun script sélectionné
+      </p>
+    </div>
+  </main>
 </div>
 `;
