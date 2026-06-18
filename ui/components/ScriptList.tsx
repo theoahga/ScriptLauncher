@@ -6,11 +6,13 @@ import "./ScriptList.css";
 interface ScriptListProps {
   folderPath: string | null;
   onScriptSelected: (script: ScriptInfo) => void;
+  onScriptNewInstance?: (script: ScriptInfo) => void;
 }
 
 export default function ScriptList({
   folderPath,
   onScriptSelected,
+  onScriptNewInstance,
 }: ScriptListProps): JSX.Element {
   const [scripts, setScripts] = useState<ScriptInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -96,6 +98,10 @@ export default function ScriptList({
             key={script.path}
             className="script-list__item"
             onClick={() => onScriptSelected(script)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              onScriptNewInstance?.(script);
+            }}
           >
             <span className="script-list__item-name">{script.name}</span>
             {script.extension !== "" && (

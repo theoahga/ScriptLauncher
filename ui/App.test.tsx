@@ -29,12 +29,11 @@ describe('App', () => {
     expect(categoryManager).toBeInTheDocument();
   });
 
-  // Cas 3 : panel droit visible avec ScriptExecutor
-  it('rend le panel droit avec le message Aucun script sélectionné', () => {
+  // Cas 3 : panel droit affiche le message vide quand aucun onglet n'est ouvert
+  it('rend le panel droit avec le message vide quand aucun onglet ouvert', () => {
     render(<App />);
-    const emptyMsg = screen.getByText('Aucun script sélectionné');
+    const emptyMsg = screen.getByText('Sélectionnez un script dans la sidebar');
     expect(emptyMsg).toBeInTheDocument();
-    // Le message est bien dans le main.main-panel
     const mainPanel = emptyMsg.closest('main.main-panel');
     expect(mainPanel).toBeInTheDocument();
   });

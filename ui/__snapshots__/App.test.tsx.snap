@@ -21,14 +21,20 @@ exports[`App > snapshot du rendu initial two-panel 1`] = `
     class="main-panel"
   >
     <div
-      class="script-executor"
+      class="main-panel__tabs"
     >
-      <p
-        class="script-executor__empty"
+      <button
+        class="main-panel__tab main-panel__tab--history"
+        type="button"
       >
-        Aucun script sélectionné
-      </p>
+        Historique
+      </button>
     </div>
+    <p
+      class="main-panel__empty"
+    >
+      Sélectionnez un script dans la sidebar
+    </p>
   </main>
 </div>
 `;

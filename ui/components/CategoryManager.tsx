@@ -17,10 +17,12 @@ import "./CategoryManager.css";
 
 interface CategoryManagerProps {
   onScriptSelected: (script: ScriptInfo) => void;
+  onScriptNewInstance?: (script: ScriptInfo) => void;
 }
 
 export default function CategoryManager({
   onScriptSelected,
+  onScriptNewInstance,
 }: CategoryManagerProps): JSX.Element {
   const [config, setConfig] = useState<AppConfig>({ categories: [] });
   const [loading, setLoading] = useState(true);
@@ -252,6 +254,7 @@ export default function CategoryManager({
               <ScriptList
                 folderPath={category.path}
                 onScriptSelected={onScriptSelected}
+                onScriptNewInstance={onScriptNewInstance}
               />
             </div>
           )}

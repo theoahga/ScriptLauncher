@@ -189,6 +189,5 @@
 
 /* Corps de la catégorie (ScriptList) */
 .category-manager__category-body {
-  padding-left: 1rem;
   border-top: 1px solid var(--color-border, #1a1a1a);
 }
