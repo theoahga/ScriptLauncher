@@ -1,26 +1,64 @@
 import { useState, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 import Sidebar from "./components/Sidebar";
 import CategoryManager from "./components/CategoryManager";
 import ScriptExecutor from "./components/ScriptExecutor";
 import HistoryPanel from "./components/HistoryPanel";
-import { ScriptInfo } from "./types";
+import { ScriptInfo, ExecutionTab } from "./types";
 
 export default function App(): JSX.Element {
-  const [selectedScript, setSelectedScript] = useState<ScriptInfo | null>(null);
+  const [tabs, setTabs] = useState<ExecutionTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
-  const [activeTab, setActiveTab] = useState<"executor" | "history">(
-    "executor",
-  );
 
-  // ADR-04 (S-09) : CategoryManager gère la config en interne.
-  // App.tsx ne connaît que le script sélectionné.
   const handleScriptSelected = useCallback((script: ScriptInfo) => {
-    setSelectedScript(script);
-    setActiveTab("executor");
+    setTabs((prev) => {
+      const existing = prev.find((t) => t.script.path === script.path);
+      if (existing) {
+        setActiveTabId(existing.id);
+        setShowHistory(false);
+        return prev;
+      }
+      const id = crypto.randomUUID();
+      setActiveTabId(id);
+      setShowHistory(false);
+      return [...prev, { id, script }];
+    });
   }, []);
 
-  // S-11 : incrémente historyVersion après chaque exécution pour recharger HistoryPanel
+  const handleScriptNewInstance = useCallback((script: ScriptInfo) => {
+    const id = crypto.randomUUID();
+    setTabs((prev) => [...prev, { id, script }]);
+    setActiveTabId(id);
+    setShowHistory(false);
+  }, []);
+
+  const handleCloseTab = useCallback(async (tabId: string) => {
+    await invoke<void>("kill_script", { executionId: tabId }).catch(() => {});
+    setTabs((prev) => {
+      const remaining = prev.filter((t) => t.id !== tabId);
+      setActiveTabId((current) => {
+        if (current !== tabId) return current;
+        if (remaining.length === 0) return null;
+        const idx = prev.findIndex((t) => t.id === tabId);
+        return remaining[Math.min(idx, remaining.length - 1)].id;
+      });
+      return remaining;
+    });
+  }, []);
+
+  const handleCloseAllTabs = useCallback(async (currentTabs: ExecutionTab[]) => {
+    await Promise.all(
+      currentTabs.map((t) =>
+        invoke<void>("kill_script", { executionId: t.id }).catch(() => {}),
+      ),
+    );
+    setTabs([]);
+    setActiveTabId(null);
+  }, []);
+
   const handleExecutionComplete = useCallback(() => {
     setHistoryVersion((v) => v + 1);
   }, []);
@@ -28,33 +66,67 @@ export default function App(): JSX.Element {
   return (
     <div className="app-shell">
       <Sidebar>
-        <CategoryManager onScriptSelected={handleScriptSelected} />
+        <CategoryManager
+          onScriptSelected={handleScriptSelected}
+          onScriptNewInstance={handleScriptNewInstance}
+        />
       </Sidebar>
       <main className="main-panel">
         <div className="main-panel__tabs">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={`main-panel__tab${activeTabId === tab.id && !showHistory ? " main-panel__tab--active" : ""}`}
+              onClick={() => { setActiveTabId(tab.id); setShowHistory(false); }}
+            >
+              <span className="main-panel__tab-label">{tab.script.name}</span>
+              <span
+                className="main-panel__tab-close"
+                role="button"
+                aria-label={`Fermer ${tab.script.name}`}
+                onClick={(e) => { e.stopPropagation(); handleCloseTab(tab.id); }}
+              >
+                ×
+              </span>
+            </button>
+          ))}
+          {tabs.length > 0 && (
+            <button
+              type="button"
+              className="main-panel__tab main-panel__tab--close-all"
+              onClick={() => handleCloseAllTabs(tabs)}
+              title="Fermer tous les onglets"
+            >
+              Tout fermer
+            </button>
+          )}
           <button
             type="button"
-            className={`main-panel__tab${activeTab === "executor" ? " main-panel__tab--active" : ""}`}
-            onClick={() => setActiveTab("executor")}
-          >
-            Exécution
-          </button>
-          <button
-            type="button"
-            className={`main-panel__tab${activeTab === "history" ? " main-panel__tab--active" : ""}`}
-            onClick={() => setActiveTab("history")}
+            className={`main-panel__tab main-panel__tab--history${showHistory ? " main-panel__tab--active" : ""}`}
+            onClick={() => setShowHistory(true)}
           >
             Historique
           </button>
         </div>
 
-        {activeTab === "executor" ? (
-          <ScriptExecutor
-            script={selectedScript}
-            onExecutionComplete={handleExecutionComplete}
-          />
-        ) : (
+        {showHistory ? (
           <HistoryPanel historyVersion={historyVersion} />
+        ) : tabs.length === 0 ? (
+          <p className="main-panel__empty">Sélectionnez un script dans la sidebar</p>
+        ) : (
+          tabs.map((tab) => (
+            <div
+              key={tab.id}
+              className={tab.id === activeTabId ? "tab-content tab-content--visible" : "tab-content"}
+            >
+              <ScriptExecutor
+                executionId={tab.id}
+                script={tab.script}
+                onExecutionComplete={handleExecutionComplete}
+              />
+            </div>
+          ))
         )}
       </main>
     </div>

@@ -40,6 +40,12 @@ export interface HistoryEntry {
   stderr: string;
 }
 
+export interface ExecutionTab {
+  /** UUID de l'onglet, aussi utilisé comme execution_id côté backend */
+  id: string;
+  script: ScriptInfo;
+}
+
 // S-09 — Config système : catégories de scripts
 
 export interface Category {

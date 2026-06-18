@@ -16,6 +16,8 @@ vi.mock("@tauri-apps/api/event", () => ({
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
+const EXEC_ID = "test-exec-id";
+
 const mockScript: ScriptInfo = {
   name: "deploy.sh",
   path: "/scripts/deploy.sh",
@@ -31,7 +33,7 @@ describe("ScriptExecutor — S-10 streaming", () => {
 
   // Cas 1 : script null → message "Aucun script sélectionné"
   it("affiche 'Aucun script sélectionné' quand script est null", () => {
-    render(<ScriptExecutor script={null} />);
+    render(<ScriptExecutor executionId={EXEC_ID} script={null} />);
 
     expect(screen.getByText("Aucun script sélectionné")).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
@@ -40,7 +42,7 @@ describe("ScriptExecutor — S-10 streaming", () => {
 
   // Cas 2 : script non-null → affiche le nom du script et le bouton Exécuter
   it("affiche le nom du script et le bouton Exécuter quand script est fourni", () => {
-    render(<ScriptExecutor script={mockScript} />);
+    render(<ScriptExecutor executionId={EXEC_ID} script={mockScript} />);
 
     expect(screen.getByText("deploy.sh")).toBeInTheDocument();
     const btn = screen.getByRole("button", { name: "Exécuter" });
@@ -52,7 +54,7 @@ describe("ScriptExecutor — S-10 streaming", () => {
   it("affiche le bouton Stop pendant l'exécution et le masque sinon", async () => {
     vi.mocked(invoke).mockReturnValue(new Promise(() => {}));
 
-    render(<ScriptExecutor script={mockScript} />);
+    render(<ScriptExecutor executionId={EXEC_ID} script={mockScript} />);
 
     expect(screen.queryByRole("button", { name: "Stop" })).not.toBeInTheDocument();
 
@@ -65,11 +67,11 @@ describe("ScriptExecutor — S-10 streaming", () => {
     expect(screen.getByRole("button", { name: "En cours..." })).toBeDisabled();
   });
 
-  // Cas 4 : clic Stop → invoke('kill_script') appelé
-  it("appelle invoke('kill_script') quand on clique Stop", async () => {
+  // Cas 4 : clic Stop → invoke('kill_script') appelé avec execution_id
+  it("appelle invoke('kill_script') avec execution_id quand on clique Stop", async () => {
     vi.mocked(invoke).mockReturnValue(new Promise(() => {}));
 
-    render(<ScriptExecutor script={mockScript} />);
+    render(<ScriptExecutor executionId={EXEC_ID} script={mockScript} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Exécuter" }));
 
@@ -81,18 +83,18 @@ describe("ScriptExecutor — S-10 streaming", () => {
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith("kill_script");
+      expect(invoke).toHaveBeenCalledWith("kill_script", { executionId: EXEC_ID });
     });
   });
 
   // Cas 5 : lignes stdout affichées au fur et à mesure via événements simulés
   it("affiche les lignes stdout successives via les événements script-stdout", async () => {
-    let stdoutHandler: ((event: { payload: { line: string } }) => void) | undefined;
+    let stdoutHandler: ((event: { payload: { execution_id: string; line: string } }) => void) | undefined;
 
     vi.mocked(listen).mockImplementation(
       async (event: string, handler: Parameters<typeof listen>[1]) => {
         if (event === "script-stdout") {
-          stdoutHandler = handler as (event: { payload: { line: string } }) => void;
+          stdoutHandler = handler as (event: { payload: { execution_id: string; line: string } }) => void;
         }
         return () => {};
       },
@@ -100,7 +102,7 @@ describe("ScriptExecutor — S-10 streaming", () => {
 
     vi.mocked(invoke).mockReturnValue(new Promise(() => {}));
 
-    render(<ScriptExecutor script={mockScript} />);
+    render(<ScriptExecutor executionId={EXEC_ID} script={mockScript} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Exécuter" }));
 
@@ -108,8 +110,8 @@ describe("ScriptExecutor — S-10 streaming", () => {
       expect(listen).toHaveBeenCalledWith("script-stdout", expect.any(Function));
     });
 
-    act(() => { stdoutHandler?.({ payload: { line: "line one" } }); });
-    act(() => { stdoutHandler?.({ payload: { line: "line two" } }); });
+    act(() => { stdoutHandler?.({ payload: { execution_id: EXEC_ID, line: "line one" } }); });
+    act(() => { stdoutHandler?.({ payload: { execution_id: EXEC_ID, line: "line two" } }); });
 
     await waitFor(() => {
       const pre = document.querySelector("pre.script-executor__stdout");
@@ -118,10 +120,40 @@ describe("ScriptExecutor — S-10 streaming", () => {
     });
   });
 
+  // Cas 5b : événements d'un autre execution_id sont ignorés
+  it("ignore les événements script-stdout d'un autre execution_id", async () => {
+    let stdoutHandler: ((event: { payload: { execution_id: string; line: string } }) => void) | undefined;
+
+    vi.mocked(listen).mockImplementation(
+      async (event: string, handler: Parameters<typeof listen>[1]) => {
+        if (event === "script-stdout") {
+          stdoutHandler = handler as (event: { payload: { execution_id: string; line: string } }) => void;
+        }
+        return () => {};
+      },
+    );
+
+    vi.mocked(invoke).mockReturnValue(new Promise(() => {}));
+
+    render(<ScriptExecutor executionId={EXEC_ID} script={mockScript} />);
+    fireEvent.click(screen.getByRole("button", { name: "Exécuter" }));
+
+    await waitFor(() => expect(listen).toHaveBeenCalledWith("script-stdout", expect.any(Function)));
+
+    act(() => { stdoutHandler?.({ payload: { execution_id: "other-id", line: "should be ignored" } }); });
+    act(() => { stdoutHandler?.({ payload: { execution_id: EXEC_ID, line: "should appear" } }); });
+
+    await waitFor(() => {
+      const pre = document.querySelector("pre.script-executor__stdout");
+      expect(pre?.textContent).toContain("should appear");
+      expect(pre?.textContent).not.toContain("should be ignored");
+    });
+  });
+
   // Cas 6 : zone d'output vidée au démarrage d'un nouveau run
   it("vide la zone output au démarrage d'un nouveau run", async () => {
-    let stdoutHandler: ((event: { payload: { line: string } }) => void) | undefined;
-    let doneHandler: ((event: { payload: { exit_code: number; stderr: string } }) => void) | undefined;
+    let stdoutHandler: ((event: { payload: { execution_id: string; line: string } }) => void) | undefined;
+    let doneHandler: ((event: { payload: { execution_id: string; exit_code: number; stderr: string } }) => void) | undefined;
 
     vi.mocked(listen).mockImplementation(
       async (event: string, handler: Parameters<typeof listen>[1]) => {
@@ -133,13 +165,13 @@ describe("ScriptExecutor — S-10 streaming", () => {
 
     vi.mocked(invoke).mockResolvedValue(undefined);
 
-    render(<ScriptExecutor script={mockScript} />);
+    render(<ScriptExecutor executionId={EXEC_ID} script={mockScript} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Exécuter" }));
     await waitFor(() => expect(listen).toHaveBeenCalledWith("script-stdout", expect.any(Function)));
 
-    act(() => { stdoutHandler?.({ payload: { line: "first run output" } }); });
-    act(() => { doneHandler?.({ payload: { exit_code: 0, stderr: "" } }); });
+    act(() => { stdoutHandler?.({ payload: { execution_id: EXEC_ID, line: "first run output" } }); });
+    act(() => { doneHandler?.({ payload: { execution_id: EXEC_ID, exit_code: 0, stderr: "" } }); });
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Exécuter" })).not.toBeDisabled();
@@ -152,13 +184,10 @@ describe("ScriptExecutor — S-10 streaming", () => {
     fireEvent.click(screen.getByRole("button", { name: "Exécuter" }));
 
     await waitFor(() => {
-      // Dès que isRunning=true, lines=[] et exitCode=null → hasOutput=false → pre non rendu
-      // OU si le pre est rendu, il ne contient pas la sortie du premier run
       const pre = document.querySelector("pre.script-executor__stdout");
       if (pre) {
         expect(pre.textContent).not.toContain("first run output");
       } else {
-        // pre absent = output vidé (hasOutput=false), comportement attendu
         expect(screen.getByRole("button", { name: "En cours..." })).toBeInTheDocument();
       }
     });
@@ -166,7 +195,7 @@ describe("ScriptExecutor — S-10 streaming", () => {
 
   // Cas 7 : script-done reçu → exit code affiché, bouton Stop disparu
   it("affiche l'exit code et masque Stop quand script-done est reçu", async () => {
-    let doneHandler: ((event: { payload: { exit_code: number; stderr: string } }) => void) | undefined;
+    let doneHandler: ((event: { payload: { execution_id: string; exit_code: number; stderr: string } }) => void) | undefined;
 
     vi.mocked(listen).mockImplementation(
       async (event: string, handler: Parameters<typeof listen>[1]) => {
@@ -177,14 +206,14 @@ describe("ScriptExecutor — S-10 streaming", () => {
 
     vi.mocked(invoke).mockReturnValue(new Promise(() => {}));
 
-    render(<ScriptExecutor script={mockScript} />);
+    render(<ScriptExecutor executionId={EXEC_ID} script={mockScript} />);
     fireEvent.click(screen.getByRole("button", { name: "Exécuter" }));
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
     });
 
-    act(() => { doneHandler?.({ payload: { exit_code: 0, stderr: "" } }); });
+    act(() => { doneHandler?.({ payload: { execution_id: EXEC_ID, exit_code: 0, stderr: "" } }); });
 
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: "Stop" })).not.toBeInTheDocument();
@@ -196,7 +225,7 @@ describe("ScriptExecutor — S-10 streaming", () => {
   it("affiche l'erreur quand run_script_stream rejette", async () => {
     vi.mocked(invoke).mockRejectedValue("Path does not exist: /scripts/deploy.sh");
 
-    render(<ScriptExecutor script={mockScript} />);
+    render(<ScriptExecutor executionId={EXEC_ID} script={mockScript} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Exécuter" }));
 
@@ -211,7 +240,7 @@ describe("ScriptExecutor — S-10 streaming", () => {
 
   // Cas 9 : auto-scroll déclenché à chaque nouvelle ligne
   it("déclenche auto-scroll sur le pre à chaque nouvelle ligne", async () => {
-    let stdoutHandler: ((event: { payload: { line: string } }) => void) | undefined;
+    let stdoutHandler: ((event: { payload: { execution_id: string; line: string } }) => void) | undefined;
 
     vi.mocked(listen).mockImplementation(
       async (event: string, handler: Parameters<typeof listen>[1]) => {
@@ -221,12 +250,12 @@ describe("ScriptExecutor — S-10 streaming", () => {
     );
     vi.mocked(invoke).mockReturnValue(new Promise(() => {}));
 
-    render(<ScriptExecutor script={mockScript} />);
+    render(<ScriptExecutor executionId={EXEC_ID} script={mockScript} />);
     fireEvent.click(screen.getByRole("button", { name: "Exécuter" }));
 
     await waitFor(() => expect(listen).toHaveBeenCalledWith("script-stdout", expect.any(Function)));
 
-    act(() => { stdoutHandler?.({ payload: { line: "trigger scroll" } }); });
+    act(() => { stdoutHandler?.({ payload: { execution_id: EXEC_ID, line: "trigger scroll" } }); });
 
     await waitFor(() => {
       const pre = document.querySelector("pre.script-executor__stdout");
@@ -239,7 +268,7 @@ describe("ScriptExecutor — S-10 streaming", () => {
 
   // Cas 10 : changement de script → reset des états (lignes, exit code, erreur)
   it("efface la sortie précédente et remet à zéro quand le script change", async () => {
-    let doneHandler: ((event: { payload: { exit_code: number; stderr: string } }) => void) | undefined;
+    let doneHandler: ((event: { payload: { execution_id: string; exit_code: number; stderr: string } }) => void) | undefined;
 
     vi.mocked(listen).mockImplementation(
       async (event: string, handler: Parameters<typeof listen>[1]) => {
@@ -249,12 +278,12 @@ describe("ScriptExecutor — S-10 streaming", () => {
     );
     vi.mocked(invoke).mockReturnValue(new Promise(() => {}));
 
-    const { rerender } = render(<ScriptExecutor script={mockScript} />);
+    const { rerender } = render(<ScriptExecutor executionId={EXEC_ID} script={mockScript} />);
     fireEvent.click(screen.getByRole("button", { name: "Exécuter" }));
 
     await waitFor(() => expect(listen).toHaveBeenCalledWith("script-done", expect.any(Function)));
 
-    act(() => { doneHandler?.({ payload: { exit_code: 42, stderr: "" } }); });
+    act(() => { doneHandler?.({ payload: { execution_id: EXEC_ID, exit_code: 42, stderr: "" } }); });
 
     await waitFor(() => {
       expect(screen.getByText("Erreur (code : 42)")).toBeInTheDocument();
@@ -265,7 +294,7 @@ describe("ScriptExecutor — S-10 streaming", () => {
       path: "/scripts/backup.py",
       extension: "py",
     };
-    rerender(<ScriptExecutor script={newScript} />);
+    rerender(<ScriptExecutor executionId={EXEC_ID} script={newScript} />);
 
     expect(screen.queryByText("Erreur (code : 42)")).not.toBeInTheDocument();
     expect(screen.getByText("backup.py")).toBeInTheDocument();

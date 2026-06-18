@@ -21,6 +21,7 @@
 // ADR-S10-02 : state stocke Child tokio (pas PID u32) pour kill cross-plateforme idiomatique.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
@@ -225,39 +226,88 @@ pub fn run_script(path: String) -> Result<ScriptOutput, String> {
 
 // ─── State Tauri — process en cours (S-10) ────────────────────────────────────
 
-/// State Tauri partagé pour le process de streaming en cours.
-/// Stocke le `Child` tokio plutôt que le PID u32 (ADR-S10-02) :
-/// cela permet un kill cross-plateforme via `.kill().await` sans dépendance `nix`.
-pub struct ScriptProcess(pub Arc<Mutex<Option<tokio::process::Child>>>);
+/// State Tauri partagé pour les process de streaming en cours.
+/// Clé : execution_id (UUID généré côté frontend par onglet).
+/// Stocke le `Child` tokio pour un kill cross-plateforme (ADR-S10-02).
+pub struct ScriptProcess(pub Arc<Mutex<HashMap<String, tokio::process::Child>>>);
+
+/// State Tauri partagé pour les handles stdin des process en cours.
+/// Clé : execution_id. Séparé de ScriptProcess pour éviter les double-borrows.
+pub struct ScriptStdin(pub Arc<Mutex<HashMap<String, tokio::process::ChildStdin>>>);
 
 /// Payload de l'événement `script-stdout` émis par ligne.
 #[derive(Debug, Serialize, Clone)]
 pub struct StdoutPayload {
+    pub execution_id: String,
     pub line: String,
 }
 
 /// Payload de l'événement `script-done` émis à la fin du processus.
 #[derive(Debug, Serialize, Clone)]
 pub struct DonePayload {
+    pub execution_id: String,
     pub exit_code: i32,
     pub stderr: String,
+}
+
+/// Parse une chaîne d'arguments en liste de tokens, à la façon d'un shell POSIX minimal.
+/// Gère les guillemets simples, doubles et l'échappement par backslash.
+/// Exemples :
+///   `--flag value`              → ["--flag", "value"]
+///   `--name "John Doe"`         → ["--name", "John Doe"]
+///   `'arg with spaces' --v`     → ["arg with spaces", "--v"]
+///   `--path /tmp/mon\ fichier`  → ["--path", "/tmp/mon fichier"]
+fn parse_args(args_str: &str) -> Vec<String> {
+    let mut args: Vec<String> = Vec::new();
+    let mut current = String::new();
+    let mut in_single = false;
+    let mut in_double = false;
+    let mut chars = args_str.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\'' if !in_double => in_single = !in_single,
+            '"' if !in_single => in_double = !in_double,
+            '\\' if !in_single => {
+                if let Some(next) = chars.next() {
+                    current.push(next);
+                }
+            }
+            ' ' | '\t' if !in_single && !in_double => {
+                if !current.is_empty() {
+                    args.push(std::mem::take(&mut current));
+                }
+            }
+            _ => current.push(ch),
+        }
+    }
+    if !current.is_empty() {
+        args.push(current);
+    }
+    args
 }
 
 /// Commande Tauri — exécute un script en streaming non-bloquant.
 ///
 /// Retourne `Ok(())` immédiatement après avoir spawné la tâche tokio (ADR-S10-01).
-/// Les lignes stdout sont émises via l'événement `script-stdout`.
-/// La fin du processus est notifiée via `script-done`.
+/// Les lignes stdout sont émises via `script-stdout` avec l'`execution_id`.
+/// La fin du processus est notifiée via `script-done` avec l'`execution_id`.
 ///
 /// # Paramètres
-/// - `path`   : chemin absolu ou relatif vers le fichier script
-/// - `window` : handle Tauri pour émettre les événements
-/// - `state`  : state partagé pour stocker le process en cours
+/// - `execution_id` : UUID de l'onglet d'exécution (généré côté frontend)
+/// - `path`         : chemin absolu ou relatif vers le fichier script
+/// - `args`         : chaîne d'arguments (parsée via `parse_args`)
+/// - `window`       : handle Tauri pour émettre les événements
+/// - `state`        : state partagé (HashMap execution_id → Child)
+/// - `stdin_state`  : state partagé (HashMap execution_id → ChildStdin)
 #[tauri::command]
 pub async fn run_script_stream(
+    execution_id: String,
     path: String,
+    args: String,
     window: tauri::Window,
     state: tauri::State<'_, ScriptProcess>,
+    stdin_state: tauri::State<'_, ScriptStdin>,
 ) -> Result<(), String> {
     // Canonicalisation du path (ADR-05 hérité)
     let canonical_path = fs::canonicalize(&path)
@@ -278,10 +328,13 @@ pub async fn run_script_stream(
 
     let interpreter = resolve_interpreter(&ext)?;
 
-    // Spawn non-bloquant avec stdout et stderr pipés
+    // Spawn non-bloquant avec stdout, stderr et stdin pipés
+    let parsed_args = parse_args(&args);
     let mut cmd = TokioCommand::new(&interpreter.binary);
     cmd.args(&interpreter.prefix_args)
         .arg(&canonical_path)
+        .args(&parsed_args)
+        .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
 
@@ -296,7 +349,7 @@ pub async fn run_script_stream(
         }
     })?;
 
-    // Extraire stdout et stderr avant de stocker le child
+    // Extraire stdout, stderr et stdin avant de stocker le child
     let stdout = child
         .stdout
         .take()
@@ -305,15 +358,25 @@ pub async fn run_script_stream(
         .stderr
         .take()
         .ok_or_else(|| "Failed to capture stderr".to_string())?;
+    let stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| "Failed to capture stdin".to_string())?;
 
-    // Stocker le child dans le state (ADR-S10-02)
+    // Stocker le child et le handle stdin dans leurs states respectifs
     {
         let mut guard = state.0.lock().await;
-        *guard = Some(child);
+        guard.insert(execution_id.clone(), child);
+    }
+    {
+        let mut guard = stdin_state.0.lock().await;
+        guard.insert(execution_id.clone(), stdin);
     }
 
     let state_arc = Arc::clone(&state.0);
+    let stdin_arc = Arc::clone(&stdin_state.0);
     let window_clone = window.clone();
+    let exec_id = execution_id.clone();
 
     // Spawner la tâche tokio de lecture (ADR-S10-01)
     tokio::spawn(async move {
@@ -322,7 +385,10 @@ pub async fn run_script_stream(
 
         // Lire stdout ligne par ligne et émettre script-stdout
         while let Ok(Some(line)) = stdout_reader.next_line().await {
-            let _ = window_clone.emit("script-stdout", StdoutPayload { line });
+            let _ = window_clone.emit(
+                "script-stdout",
+                StdoutPayload { execution_id: exec_id.clone(), line },
+            );
         }
 
         // Collecter stderr en bloc
@@ -332,7 +398,7 @@ pub async fn run_script_stream(
         // Attendre la fin du process et récupérer le exit code
         let exit_code = {
             let mut guard = state_arc.lock().await;
-            if let Some(child) = guard.as_mut() {
+            if let Some(child) = guard.get_mut(&exec_id) {
                 match child.wait().await {
                     Ok(status) => status.code().unwrap_or(-1),
                     Err(_) => -1,
@@ -343,16 +409,21 @@ pub async fn run_script_stream(
             }
         };
 
-        // Nettoyer le state
+        // Nettoyer les states (stdin d'abord pour notifier EOF au process si encore vivant)
+        {
+            let mut guard = stdin_arc.lock().await;
+            guard.remove(&exec_id);
+        }
         {
             let mut guard = state_arc.lock().await;
-            *guard = None;
+            guard.remove(&exec_id);
         }
 
         // Émettre script-done
         let _ = window_clone.emit(
             "script-done",
             DonePayload {
+                execution_id: exec_id,
                 exit_code,
                 stderr: stderr_buf,
             },
@@ -362,21 +433,75 @@ pub async fn run_script_stream(
     Ok(())
 }
 
-/// Commande Tauri — interrompt le script en cours.
+/// Commande Tauri — interrompt le script en cours pour un onglet donné.
 ///
-/// Si aucun process n'est actif (PID None), retourne `Ok(())` sans panique (edge case story).
-/// Après kill, le state est remis à `None`.
+/// Si aucun process n'est actif pour cet `execution_id`, retourne `Ok(())` silencieusement.
+/// Après kill, les entrées child et stdin sont retirées de leurs HashMaps respectifs.
 #[tauri::command]
-pub async fn kill_script(state: tauri::State<'_, ScriptProcess>) -> Result<(), String> {
+pub async fn kill_script(
+    execution_id: String,
+    state: tauri::State<'_, ScriptProcess>,
+    stdin_state: tauri::State<'_, ScriptStdin>,
+) -> Result<(), String> {
+    // Fermer stdin d'abord pour éviter tout blocage sur write
+    {
+        let mut guard = stdin_state.0.lock().await;
+        guard.remove(&execution_id);
+    }
     let mut guard = state.0.lock().await;
-    if let Some(child) = guard.as_mut() {
+    if let Some(child) = guard.get_mut(&execution_id) {
         child
             .kill()
             .await
             .map_err(|e| format!("Failed to kill process: {e}"))?;
-        *guard = None;
+        guard.remove(&execution_id);
     }
-    // Si None → pas de panique, retour Ok(()) silencieux
+    Ok(())
+}
+
+/// Commande Tauri — envoie du texte sur stdin du script en cours.
+///
+/// Si aucun process n'est actif, retourne `Ok(())` silencieusement.
+#[tauri::command]
+pub async fn write_stdin(
+    execution_id: String,
+    data: String,
+    stdin_state: tauri::State<'_, ScriptStdin>,
+) -> Result<(), String> {
+    use tokio::io::AsyncWriteExt;
+    let mut guard = stdin_state.0.lock().await;
+    if let Some(stdin) = guard.get_mut(&execution_id) {
+        stdin
+            .write_all(data.as_bytes())
+            .await
+            .map_err(|e| format!("Failed to write to stdin: {e}"))?;
+    }
+    Ok(())
+}
+
+/// Commande Tauri — envoie SIGINT (Ctrl+C) au script en cours.
+///
+/// Sur Unix : envoie SIGINT via `kill -INT <pid>`.
+/// Sur Windows : non supporté (retourne Ok sans effet).
+#[tauri::command]
+pub async fn send_ctrl_c(
+    execution_id: String,
+    state: tauri::State<'_, ScriptProcess>,
+) -> Result<(), String> {
+    let guard = state.0.lock().await;
+    if let Some(child) = guard.get(&execution_id) {
+        #[cfg(unix)]
+        if let Some(pid) = child.id() {
+            std::process::Command::new("kill")
+                .args(["-INT", &pid.to_string()])
+                .status()
+                .map_err(|e| format!("Failed to send SIGINT: {e}"))?;
+        }
+        // Windows : pas de SIGINT natif via cette méthode — le frontend peut
+        // utiliser write_stdin avec "\x03" comme fallback pour certains programmes.
+        #[cfg(not(unix))]
+        let _ = child;
+    }
     Ok(())
 }
 
@@ -978,30 +1103,27 @@ mod tests {
     // ─── Tests S-10 : kill_script ─────────────────────────────────────────────
 
     // ── TC-S10-01 : kill_script sans process actif → Ok(()) sans panique ──────
-    // Valide l'edge case story : kill_script quand aucun PID stocké.
     #[tokio::test]
     async fn test_kill_script_no_process_returns_ok() {
-        let state = ScriptProcess(Arc::new(Mutex::new(None)));
-        // Appeler directement la logique interne (pas via Tauri State)
+        let state = ScriptProcess(Arc::new(Mutex::new(HashMap::new())));
+        let exec_id = "test-exec".to_string();
         let mut guard = state.0.lock().await;
-        if let Some(child) = guard.as_mut() {
+        if let Some(child) = guard.get_mut(&exec_id) {
             let _ = child.kill().await;
-            *guard = None;
+            guard.remove(&exec_id);
         }
-        // Pas de panique, l'état reste None
-        assert!(guard.is_none(), "state should remain None when no process was active");
+        assert!(guard.get(&exec_id).is_none(), "state should have no entry for unknown id");
     }
 
-    // ── TC-S10-02 : kill_script avec process actif → PID remis à None ─────────
-    // Spawne un vrai process (sleep), le tue, vérifie que le state est remis à None.
+    // ── TC-S10-02 : kill_script avec process actif → entrée retirée du HashMap ─
     #[cfg(not(target_os = "windows"))]
     #[tokio::test]
     async fn test_kill_script_with_process_clears_state() {
         use tokio::process::Command as TokioCmd;
 
-        let state = ScriptProcess(Arc::new(Mutex::new(None)));
+        let exec_id = "test-exec".to_string();
+        let state = ScriptProcess(Arc::new(Mutex::new(HashMap::new())));
 
-        // Spawner un process qui dure longtemps
         let child = TokioCmd::new("sleep")
             .arg("60")
             .spawn()
@@ -1009,26 +1131,23 @@ mod tests {
 
         {
             let mut guard = state.0.lock().await;
-            *guard = Some(child);
+            guard.insert(exec_id.clone(), child);
         }
 
-        // Vérifier que le process est bien stocké
         {
             let guard = state.0.lock().await;
-            assert!(guard.is_some(), "child should be stored before kill");
+            assert!(guard.contains_key(&exec_id), "child should be stored before kill");
         }
 
-        // Simuler kill_script : lire et tuer le child
         {
             let mut guard = state.0.lock().await;
-            if let Some(child) = guard.as_mut() {
+            if let Some(child) = guard.get_mut(&exec_id) {
                 let _ = child.kill().await;
-                *guard = None;
+                guard.remove(&exec_id);
             }
         }
 
-        // Vérifier que le state est None après kill
         let guard = state.0.lock().await;
-        assert!(guard.is_none(), "state should be None after kill");
+        assert!(!guard.contains_key(&exec_id), "state should not contain entry after kill");
     }
 }

@@ -5,6 +5,8 @@ import { ScriptInfo, HistoryEntry } from "../types";
 import "./ScriptExecutor.css";
 
 interface ScriptExecutorProps {
+  /** UUID de l'onglet — aussi utilisé comme execution_id côté backend */
+  executionId: string;
   script: ScriptInfo | null;
   /** Appelé après chaque exécution terminée pour signaler à App.tsx de recharger l'historique */
   onExecutionComplete?: () => void;
@@ -12,15 +14,18 @@ interface ScriptExecutorProps {
 
 // Payloads des événements Tauri (S-10)
 interface StdoutPayload {
+  execution_id: string;
   line: string;
 }
 
 interface DonePayload {
+  execution_id: string;
   exit_code: number;
   stderr: string;
 }
 
 export default function ScriptExecutor({
+  executionId,
   script,
   onExecutionComplete,
 }: ScriptExecutorProps): JSX.Element {
@@ -29,13 +34,17 @@ export default function ScriptExecutor({
   const [stderrOutput, setStderrOutput] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [argsInput, setArgsInput] = useState("");
+  const [stdinValue, setStdinValue] = useState("");
+  const syncIsRunning = (v: boolean) => { isRunningRef.current = v; setIsRunning(v); };
 
-  // ADR-04 : auto-scroll via ref sur le <pre>
-  const outputRef = useRef<HTMLPreElement>(null);
+  // Ref sur le conteneur terminal (div) pour l'auto-scroll
+  const terminalRef = useRef<HTMLDivElement>(null);
 
   // ADR-01 (S-07) : reset des états quand le script sélectionné change
   // ADR-06 (S-07) : ref pour annuler les invocations obsolètes
   const cancelledRef = useRef(false);
+  const isRunningRef = useRef(false);
 
   // S-11 : timestamp de début pour calculer duration_ms
   const startTimeRef = useRef<number>(0);
@@ -46,23 +55,22 @@ export default function ScriptExecutor({
     setExitCode(null);
     setStderrOutput("");
     setError(null);
-    setIsRunning(false);
+    setStdinValue("");
+    syncIsRunning(false);
 
     return () => {
       cancelledRef.current = true;
     };
   }, [script]);
 
-  // ADR-04 : auto-scroll à chaque nouvelle ligne
+  // Auto-scroll : descend en bas quand une nouvelle ligne arrive ou quand le run démarre
   useEffect(() => {
-    if (outputRef.current) {
-      outputRef.current.scrollTop = outputRef.current.scrollHeight;
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
-  }, [lines]);
+  }, [lines, isRunning]);
 
   // ADR-03 : listeners Tauri avec cleanup dans useEffect
-  // Les unlisten sont stockés dans refs pour être accessibles dans le handler script-done
-  // et dans le cleanup useEffect sans capture de closure stale.
   const unlistenStdoutRef = useRef<(() => void) | undefined>(undefined);
   const unlistenDoneRef = useRef<(() => void) | undefined>(undefined);
 
@@ -76,6 +84,7 @@ export default function ScriptExecutor({
       unlistenStdoutRef.current = await listen<StdoutPayload>(
         "script-stdout",
         (event) => {
+          if (event.payload.execution_id !== executionId) return;
           setLines((prev) => {
             const updated = [...prev, event.payload.line];
             linesRef.current = updated;
@@ -87,10 +96,11 @@ export default function ScriptExecutor({
       unlistenDoneRef.current = await listen<DonePayload>(
         "script-done",
         (event) => {
+          if (event.payload.execution_id !== executionId) return;
           const { exit_code, stderr } = event.payload;
           setExitCode(exit_code);
           setStderrOutput(stderr);
-          setIsRunning(false);
+          syncIsRunning(false);
           unlistenStdoutRef.current?.();
           unlistenDoneRef.current?.();
 
@@ -121,7 +131,7 @@ export default function ScriptExecutor({
     setupListeners().catch((err) => {
       if (!cancelledRef.current) {
         setError(String(err));
-        setIsRunning(false);
+        syncIsRunning(false);
       }
     });
 
@@ -129,38 +139,74 @@ export default function ScriptExecutor({
       unlistenStdoutRef.current?.();
       unlistenDoneRef.current?.();
     };
-  }, [isRunning, script, onExecutionComplete]);
+  }, [isRunning, script, executionId, onExecutionComplete]);
 
   const handleRun = useCallback(async () => {
     if (script === null) return;
 
+    // Tuer le process précédent avant de démarrer (évite la race condition)
+    if (isRunningRef.current) {
+      await invoke<void>("kill_script", { executionId }).catch(() => {});
+    }
+
     cancelledRef.current = false;
-    // ADR-05 : vider la zone output à chaque nouveau run
     setLines([]);
     linesRef.current = [];
     setExitCode(null);
     setStderrOutput("");
     setError(null);
+    setStdinValue("");
     startTimeRef.current = Date.now();
-    setIsRunning(true);
+    syncIsRunning(true);
 
     try {
-      await invoke<void>("run_script_stream", { path: script.path });
+      await invoke<void>("run_script_stream", { executionId, path: script.path, args: argsInput });
     } catch (err) {
       if (!cancelledRef.current) {
         setError(String(err));
-        setIsRunning(false);
+        syncIsRunning(false);
       }
     }
-  }, [script]);
+  }, [script, executionId, argsInput]);
 
   const handleStop = useCallback(async () => {
     try {
-      await invoke<void>("kill_script");
+      await invoke<void>("kill_script", { executionId });
     } catch (err) {
       setError(String(err));
     }
-  }, []);
+  }, [executionId]);
+
+  const handleCtrlC = useCallback(async () => {
+    try {
+      await invoke<void>("send_ctrl_c", { executionId });
+    } catch {
+      // SIGINT non supporté sur cette plateforme, ignoré
+    }
+  }, [executionId]);
+
+  const handleSendStdin = useCallback(async () => {
+    if (!stdinValue) return;
+    try {
+      await invoke<void>("write_stdin", { executionId, data: stdinValue + "\n" });
+      setStdinValue("");
+    } catch (err) {
+      setError(String(err));
+    }
+  }, [executionId, stdinValue]);
+
+  const handleStdinKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleSendStdin();
+      } else if (e.key === "c" && e.ctrlKey) {
+        e.preventDefault();
+        handleCtrlC();
+      }
+    },
+    [handleSendStdin, handleCtrlC],
+  );
 
   if (script === null) {
     return (
@@ -170,7 +216,7 @@ export default function ScriptExecutor({
     );
   }
 
-  const hasOutput = lines.length > 0 || exitCode !== null;
+  const showTerminal = lines.length > 0 || exitCode !== null || isRunning;
 
   return (
     <div className="script-executor">
@@ -186,22 +232,46 @@ export default function ScriptExecutor({
             {isRunning ? "En cours..." : "Exécuter"}
           </button>
           {isRunning && (
-            <button
-              type="button"
-              className="script-executor__stop-btn"
-              onClick={handleStop}
-            >
-              Stop
-            </button>
+            <>
+              <button
+                type="button"
+                className="script-executor__ctrl-c"
+                onClick={handleCtrlC}
+                title="Envoyer SIGINT — ou Ctrl+C dans le terminal"
+              >
+                ^C
+              </button>
+              <button
+                type="button"
+                className="script-executor__stop-btn"
+                onClick={handleStop}
+                title="Forcer l'arrêt (SIGKILL)"
+              >
+                Stop
+              </button>
+            </>
           )}
         </div>
+      </div>
+
+      <div className="script-executor__args-row">
+        <span className="script-executor__args-label">Args</span>
+        <input
+          type="text"
+          className="script-executor__args-input"
+          placeholder='--flag value "arg with spaces"'
+          value={argsInput}
+          onChange={(e) => setArgsInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !isRunning) handleRun(); }}
+          disabled={isRunning}
+        />
       </div>
 
       {error !== null && (
         <p className="script-executor__error">{error}</p>
       )}
 
-      {hasOutput && (
+      {showTerminal && (
         <div className="script-executor__output">
           {exitCode !== null && (
             <span
@@ -211,29 +281,36 @@ export default function ScriptExecutor({
                   : "script-executor__status script-executor__status--error"
               }
             >
-              {exitCode === 0
-                ? "Succès"
-                : `Erreur (code : ${exitCode})`}
+              {exitCode === 0 ? "Succès" : `Erreur (code : ${exitCode})`}
             </span>
           )}
 
-          <div className="script-executor__section">
-            <span className="script-executor__section-label">
-              Sortie standard
-            </span>
-            <pre
-              ref={outputRef}
-              className="script-executor__stdout"
-            >
-              {lines.length > 0 ? lines.join("\n") : isRunning ? "" : "(vide)"}
-            </pre>
+          <div className="script-executor__section" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <span className="script-executor__section-label">Sortie standard</span>
+            <div ref={terminalRef} className="script-executor__terminal">
+              <pre className="script-executor__stdout">
+                {lines.join("\n")}
+              </pre>
+              {isRunning && (
+                <div className="script-executor__stdin-row">
+                  <span className="script-executor__stdin-prompt">›</span>
+                  <input
+                    type="text"
+                    className="script-executor__stdin-input"
+                    value={stdinValue}
+                    onChange={(e) => setStdinValue(e.target.value)}
+                    onKeyDown={handleStdinKeyDown}
+                    placeholder="Entrée pour envoyer, Ctrl+C pour interrompre"
+                    autoFocus
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {stderrOutput.trim() !== "" && (
             <div className="script-executor__section">
-              <span className="script-executor__section-label">
-                Erreur standard
-              </span>
+              <span className="script-executor__section-label">Erreur standard</span>
               <pre className="script-executor__stderr">{stderrOutput}</pre>
             </div>
           )}

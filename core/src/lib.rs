@@ -6,7 +6,11 @@ mod script_runner;
 use config::{get_config, save_config};
 use file_system::list_scripts;
 use history::{append_history, clear_history, get_history};
-use script_runner::{kill_script, run_script, run_script_stream, ScriptProcess};
+use script_runner::{
+    kill_script, run_script, run_script_stream, send_ctrl_c, write_stdin, ScriptProcess,
+    ScriptStdin,
+};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -18,7 +22,8 @@ use tokio::sync::Mutex;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .manage(ScriptProcess(Arc::new(Mutex::new(None))))
+        .manage(ScriptProcess(Arc::new(Mutex::new(HashMap::new()))))
+        .manage(ScriptStdin(Arc::new(Mutex::new(HashMap::new()))))
         .invoke_handler(tauri::generate_handler![
             list_scripts,
             run_script,
@@ -26,6 +31,8 @@ pub fn run() {
             save_config,
             run_script_stream,
             kill_script,
+            write_stdin,
+            send_ctrl_c,
             append_history,
             get_history,
             clear_history
