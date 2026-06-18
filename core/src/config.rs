@@ -1,18 +1,18 @@
-// config.rs — S-09
+// config.rs — Tauri commands for persistent configuration management.
 //
-// Commandes Tauri pour la gestion de la configuration persistante :
-//   - get_config() → AppConfig   : lecture (crée config vide si absent)
-//   - save_config(config) → ()   : écriture atomique via fichier .tmp + rename
+// Commands:
+//   get_config()        → AppConfig  : reads config (returns empty if missing)
+//   save_config(config) → ()         : atomic write via temp file + rename
 //
-// ADR-01 : écriture atomique (temp + rename) pour éviter la corruption
-// ADR-06 : app_data_dir() via tauri::Manager sur AppHandle
+// Atomic write (temp + rename) prevents corruption on crash.
+// Config directory is resolved via tauri::Manager / app_data_dir().
 
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use tauri::Manager;
 
-/// Une catégorie de scripts (nom + chemin + identifiant opaque).
+/// A script category (display name + folder path + opaque UUID id).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Category {
     pub id: String,
@@ -20,13 +20,13 @@ pub struct Category {
     pub path: String,
 }
 
-/// Configuration globale de l'application.
+/// Global application configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub categories: Vec<Category>,
 }
 
-/// Résout le chemin du fichier config.json dans app_data_dir.
+/// Resolves the path to config.json inside app_data_dir.
 fn config_path(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
     let base = app_handle
         .path()
@@ -35,10 +35,10 @@ fn config_path(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(base.join("config.json"))
 }
 
-/// Commande Tauri — lit la configuration.
+/// Tauri command — reads the configuration.
 ///
-/// Si le fichier est absent, retourne une config vide (ne crée pas le fichier).
-/// Si le fichier est corrompu (JSON invalide), retourne une erreur.
+/// Returns an empty config when the file is missing (does not create it).
+/// Returns an error if the file exists but contains invalid JSON.
 #[tauri::command]
 pub fn get_config(app_handle: tauri::AppHandle) -> Result<AppConfig, String> {
     let path = config_path(&app_handle)?;
@@ -56,20 +56,19 @@ pub fn get_config(app_handle: tauri::AppHandle) -> Result<AppConfig, String> {
     Ok(config)
 }
 
-/// Commande Tauri — écrit la configuration de façon atomique.
+/// Tauri command — writes the configuration atomically.
 ///
-/// Algorithme (ADR-01) :
-/// 1. Crée app_data_dir si absent
-/// 2. Sérialise en JSON formaté
-/// 3. Écrit dans config.json.tmp (même répertoire = même filesystem)
-/// 4. Renomme .tmp → config.json
+/// Algorithm:
+/// 1. Create app_data_dir if missing
+/// 2. Serialize to pretty-printed JSON
+/// 3. Write to config.json.tmp (same filesystem as destination)
+/// 4. Rename .tmp → config.json
 ///
-/// Les chemins invalides dans les catégories sont acceptés sans validation.
+/// Category paths are accepted without validation.
 #[tauri::command]
 pub fn save_config(app_handle: tauri::AppHandle, config: AppConfig) -> Result<(), String> {
     let path = config_path(&app_handle)?;
 
-    // Créer le répertoire si absent
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir)
             .map_err(|e| format!("Failed to create config directory: {e}"))?;
@@ -78,7 +77,6 @@ pub fn save_config(app_handle: tauri::AppHandle, config: AppConfig) -> Result<()
     let json = serde_json::to_string_pretty(&config)
         .map_err(|e| format!("Failed to serialize config: {e}"))?;
 
-    // Écriture atomique : .tmp dans le même répertoire (même filesystem)
     let tmp_path = path.with_extension("json.tmp");
 
     fs::write(&tmp_path, &json)
@@ -96,7 +94,6 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
-    /// Crée un répertoire temporaire unique.
     fn make_temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("scriptlauncher_config_test_{name}"));
         fs::create_dir_all(&dir).expect("failed to create temp dir");
@@ -107,16 +104,13 @@ mod tests {
         let _ = fs::remove_dir_all(dir);
     }
 
-    /// Simule get_config sur un fichier inexistant → config vide
     #[test]
     fn test_get_config_missing_file_returns_empty() {
         let dir = make_temp_dir("missing");
         let config_file = dir.join("config.json");
 
-        // Le fichier n'existe pas
         assert!(!config_file.exists());
 
-        // Simulation : lire manuellement (sans AppHandle dans les tests unitaires)
         let result: AppConfig = if !config_file.exists() {
             AppConfig { categories: vec![] }
         } else {
@@ -128,7 +122,6 @@ mod tests {
         assert!(result.categories.is_empty());
     }
 
-    /// Simule get_config sur un fichier valide
     #[test]
     fn test_get_config_reads_existing_file() {
         let dir = make_temp_dir("existing");
@@ -137,7 +130,7 @@ mod tests {
         let config = AppConfig {
             categories: vec![Category {
                 id: "cat-1".to_string(),
-                name: "Système".to_string(),
+                name: "System".to_string(),
                 path: "/Users/theo/scripts".to_string(),
             }],
         };
@@ -145,15 +138,15 @@ mod tests {
         let json = serde_json::to_string_pretty(&config).unwrap();
         fs::write(&config_file, &json).unwrap();
 
-        let loaded: AppConfig = serde_json::from_str(&fs::read_to_string(&config_file).unwrap()).unwrap();
+        let loaded: AppConfig =
+            serde_json::from_str(&fs::read_to_string(&config_file).unwrap()).unwrap();
 
         cleanup(&dir);
         assert_eq!(loaded.categories.len(), 1);
-        assert_eq!(loaded.categories[0].name, "Système");
+        assert_eq!(loaded.categories[0].name, "System");
         assert_eq!(loaded.categories[0].path, "/Users/theo/scripts");
     }
 
-    /// Config corrompue → erreur de parsing
     #[test]
     fn test_get_config_corrupt_file_returns_err() {
         let dir = make_temp_dir("corrupt");
@@ -167,7 +160,6 @@ mod tests {
         assert!(result.is_err(), "corrupt JSON should fail to parse");
     }
 
-    /// Écriture atomique : le fichier final est correct
     #[test]
     fn test_save_config_writes_correct_json() {
         let dir = make_temp_dir("write");
@@ -178,8 +170,8 @@ mod tests {
             categories: vec![
                 Category {
                     id: "uuid-1".to_string(),
-                    name: "Réseau".to_string(),
-                    path: "/scripts/réseau".to_string(),
+                    name: "Network".to_string(),
+                    path: "/scripts/network".to_string(),
                 },
                 Category {
                     id: "uuid-2".to_string(),
@@ -189,7 +181,6 @@ mod tests {
             ],
         };
 
-        // Simulation de save_config sans AppHandle
         let json = serde_json::to_string_pretty(&config).unwrap();
         fs::write(&tmp_file, &json).unwrap();
         fs::rename(&tmp_file, &config_file).unwrap();
@@ -202,10 +193,9 @@ mod tests {
 
         cleanup(&dir);
         assert_eq!(loaded.categories.len(), 2);
-        assert_eq!(loaded.categories[0].name, "Réseau");
+        assert_eq!(loaded.categories[0].name, "Network");
     }
 
-    /// AppConfig sérialise et désérialise (round-trip)
     #[test]
     fn test_app_config_roundtrip() {
         let config = AppConfig {
@@ -223,7 +213,6 @@ mod tests {
         assert_eq!(restored.categories[0].id, "test-id");
     }
 
-    /// AppConfig vide sérialise correctement
     #[test]
     fn test_app_config_empty_categories() {
         let config = AppConfig { categories: vec![] };
@@ -233,17 +222,16 @@ mod tests {
         assert!(restored.categories.is_empty());
     }
 
-    /// Category implémente Clone et Debug
     #[test]
     fn test_category_clone_and_debug() {
         let cat = Category {
             id: "abc".to_string(),
-            name: "MonCat".to_string(),
-            path: "/chemin".to_string(),
+            name: "MyCat".to_string(),
+            path: "/path/to/cat".to_string(),
         };
         let cloned = cat.clone();
         assert_eq!(cloned.id, "abc");
         let debug = format!("{cat:?}");
-        assert!(debug.contains("MonCat"));
+        assert!(debug.contains("MyCat"));
     }
 }

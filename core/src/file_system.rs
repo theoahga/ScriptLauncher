@@ -14,7 +14,7 @@ pub struct ScriptInfo {
 }
 
 #[tauri::command]
-// `folder` doit être String (pas &str) : contrat imposé par l'IPC Tauri (serde JSON)
+// `folder` must be String (not &str): required by the Tauri IPC contract (serde JSON)
 #[allow(clippy::needless_pass_by_value)]
 pub fn list_scripts(folder: String) -> Result<Vec<ScriptInfo>, String> {
     let path = PathBuf::from(&folder);
@@ -39,25 +39,25 @@ pub fn list_scripts(folder: String) -> Result<Vec<ScriptInfo>, String> {
 
         let entry_path = entry.path();
 
-        // Ignorer les sous-dossiers
+        // Skip subdirectories
         if entry_path.is_dir() {
             continue;
         }
 
-        // Récupérer l'extension en minuscules
+        // Get the extension in lowercase
         let Some(ext_os) = entry_path.extension() else {
             continue;
         };
         let extension = ext_os.to_string_lossy().to_lowercase();
 
-        // Filtrer par extension reconnue
+        // Filter by allowed extension
         if !ALLOWED_EXTENSIONS.contains(&extension.as_str()) {
             continue;
         }
 
-        // Calculer le chemin absolu canonique (ADR-03)
+        // Compute the canonical absolute path
         let Ok(canonical) = fs::canonicalize(&entry_path) else {
-            continue; // ignore silencieusement (ADR-02)
+            continue; // silently ignored
         };
 
         let Some(name_os) = entry_path.file_name() else {
@@ -72,7 +72,7 @@ pub fn list_scripts(folder: String) -> Result<Vec<ScriptInfo>, String> {
         });
     }
 
-    // Tri alphabétique insensible à la casse (ADR-04)
+    // Case-insensitive alphabetical sort
     scripts.sort_by_key(|s| s.name.to_lowercase());
 
     Ok(scripts)
@@ -84,8 +84,8 @@ mod tests {
     use std::fs::{self, File};
     use std::path::PathBuf;
 
-    /// Crée un dossier temporaire unique basé sur un nom donné.
-    /// Retourne le chemin. L'appelant est responsable de la suppression.
+    /// Creates a unique temporary directory for a test.
+    /// The caller is responsible for cleanup.
     fn make_temp_dir(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("scriptlauncher_test_{}", name));
         fs::create_dir_all(&dir).expect("failed to create temp dir");
@@ -211,13 +211,13 @@ mod tests {
         assert_eq!(scripts[0].extension, "sh");
     }
 
-    // EC6 — fichier sans extension : ignoré
+    // EC6 — file without extension: ignored
     #[test]
     fn test_list_scripts_no_extension_ignored() {
         let dir = make_temp_dir("no_ext");
         File::create(dir.join("Makefile")).unwrap();
         File::create(dir.join("README")).unwrap();
-        File::create(dir.join("run.sh")).unwrap(); // seul attendu
+        File::create(dir.join("run.sh")).unwrap(); // only expected
 
         let result = list_scripts(dir.to_string_lossy().to_string());
         cleanup(&dir);
@@ -227,13 +227,13 @@ mod tests {
         assert_eq!(scripts[0].name, "run.sh");
     }
 
-    // EC8 — fichier commençant par un point (.bashrc, .zshrc) : ignoré car extension absente
+    // EC8 — dotfile (.bashrc, .zshrc): ignored because extension is absent
     #[test]
     fn test_list_scripts_dotfile_ignored() {
         let dir = make_temp_dir("dotfile");
         File::create(dir.join(".bashrc")).unwrap();
         File::create(dir.join(".zshrc")).unwrap();
-        File::create(dir.join("hello.py")).unwrap(); // seul attendu
+        File::create(dir.join("hello.py")).unwrap(); // only expected
 
         let result = list_scripts(dir.to_string_lossy().to_string());
         cleanup(&dir);
@@ -243,7 +243,7 @@ mod tests {
         assert_eq!(scripts[0].name, "hello.py");
     }
 
-    // EC12 — chemin avec espaces et caractères Unicode
+    // EC12 — path with spaces and Unicode characters
     #[test]
     fn test_list_scripts_path_with_spaces_and_unicode() {
         let dir = make_temp_dir("spaced dir ñoño");
@@ -256,12 +256,12 @@ mod tests {
 
         let scripts = result.expect("should succeed with spaces and unicode");
         assert_eq!(scripts.len(), 2);
-        // Tri : "d" < "m"
+        // Sort: "d" < "m"
         assert_eq!(scripts[0].name, "données.sh");
         assert_eq!(scripts[1].name, "mon script.py");
     }
 
-    // Vérifie que le champ `path` est un chemin absolu (commence par "/")
+    // Verify that the `path` field is an absolute path (starts with "/")
     #[test]
     fn test_list_scripts_path_field_is_absolute() {
         let dir = make_temp_dir("abs_path");
@@ -279,7 +279,7 @@ mod tests {
         );
     }
 
-    // Vérifie que le champ `extension` ne contient pas le point
+    // Verify that the `extension` field does not contain the dot
     #[test]
     fn test_list_scripts_extension_has_no_dot() {
         let dir = make_temp_dir("ext_no_dot");
@@ -298,7 +298,7 @@ mod tests {
         assert_eq!(scripts[0].extension, "py");
     }
 
-    // Toutes les 9 extensions reconnues sont acceptées
+    // All 9 allowed extensions are accepted
     #[test]
     fn test_list_scripts_all_allowed_extensions() {
         let dir = make_temp_dir("all_exts");

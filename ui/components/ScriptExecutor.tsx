@@ -5,14 +5,14 @@ import { ScriptInfo, HistoryEntry } from "../types";
 import "./ScriptExecutor.css";
 
 interface ScriptExecutorProps {
-  /** UUID de l'onglet — aussi utilisé comme execution_id côté backend */
+  /** Tab UUID — also used as execution_id on the backend */
   executionId: string;
   script: ScriptInfo | null;
-  /** Appelé après chaque exécution terminée pour signaler à App.tsx de recharger l'historique */
+  /** Called after each completed execution to signal App.tsx to reload the history */
   onExecutionComplete?: () => void;
 }
 
-// Payloads des événements Tauri (S-10)
+// Tauri event payloads
 interface StdoutPayload {
   execution_id: string;
   line: string;
@@ -38,15 +38,12 @@ export default function ScriptExecutor({
   const [stdinValue, setStdinValue] = useState("");
   const syncIsRunning = (v: boolean) => { isRunningRef.current = v; setIsRunning(v); };
 
-  // Ref sur le conteneur terminal (div) pour l'auto-scroll
+  // Ref to the terminal container for auto-scroll
   const terminalRef = useRef<HTMLDivElement>(null);
 
-  // ADR-01 (S-07) : reset des états quand le script sélectionné change
-  // ADR-06 (S-07) : ref pour annuler les invocations obsolètes
   const cancelledRef = useRef(false);
   const isRunningRef = useRef(false);
 
-  // S-11 : timestamp de début pour calculer duration_ms
   const startTimeRef = useRef<number>(0);
 
   useEffect(() => {
@@ -63,18 +60,17 @@ export default function ScriptExecutor({
     };
   }, [script]);
 
-  // Auto-scroll : descend en bas quand une nouvelle ligne arrive ou quand le run démarre
   useEffect(() => {
     if (terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
   }, [lines, isRunning]);
 
-  // ADR-03 : listeners Tauri avec cleanup dans useEffect
+  // Tauri listeners with cleanup in useEffect
   const unlistenStdoutRef = useRef<(() => void) | undefined>(undefined);
   const unlistenDoneRef = useRef<(() => void) | undefined>(undefined);
 
-  // Ref pour capturer la liste de lignes dans le handler script-done (évite closure stale)
+  // Ref to capture line list in the script-done handler (avoids stale closure)
   const linesRef = useRef<string[]>([]);
 
   useEffect(() => {
@@ -104,7 +100,6 @@ export default function ScriptExecutor({
           unlistenStdoutRef.current?.();
           unlistenDoneRef.current?.();
 
-          // S-11 : persister l'exécution dans l'historique (ADR-S11-04)
           if (script !== null && !cancelledRef.current) {
             const duration_ms = Date.now() - startTimeRef.current;
             const entry: HistoryEntry = {
@@ -144,7 +139,7 @@ export default function ScriptExecutor({
   const handleRun = useCallback(async () => {
     if (script === null) return;
 
-    // Tuer le process précédent avant de démarrer (évite la race condition)
+    // Kill previous process before starting to avoid a race condition
     if (isRunningRef.current) {
       await invoke<void>("kill_script", { executionId }).catch(() => {});
     }
@@ -181,7 +176,7 @@ export default function ScriptExecutor({
     try {
       await invoke<void>("send_ctrl_c", { executionId });
     } catch {
-      // SIGINT non supporté sur cette plateforme, ignoré
+      // SIGINT not supported on this platform, ignored
     }
   }, [executionId]);
 
@@ -211,7 +206,7 @@ export default function ScriptExecutor({
   if (script === null) {
     return (
       <div className="script-executor">
-        <p className="script-executor__empty">Aucun script sélectionné</p>
+        <p className="script-executor__empty">No script selected</p>
       </div>
     );
   }
@@ -229,7 +224,7 @@ export default function ScriptExecutor({
             onClick={handleRun}
             disabled={isRunning}
           >
-            {isRunning ? "En cours..." : "Exécuter"}
+            {isRunning ? "Running..." : "Run"}
           </button>
           {isRunning && (
             <>
@@ -237,7 +232,7 @@ export default function ScriptExecutor({
                 type="button"
                 className="script-executor__ctrl-c"
                 onClick={handleCtrlC}
-                title="Envoyer SIGINT — ou Ctrl+C dans le terminal"
+                title="Send SIGINT — or Ctrl+C in the terminal"
               >
                 ^C
               </button>
@@ -245,7 +240,7 @@ export default function ScriptExecutor({
                 type="button"
                 className="script-executor__stop-btn"
                 onClick={handleStop}
-                title="Forcer l'arrêt (SIGKILL)"
+                title="Force stop (SIGKILL)"
               >
                 Stop
               </button>
@@ -281,12 +276,12 @@ export default function ScriptExecutor({
                   : "script-executor__status script-executor__status--error"
               }
             >
-              {exitCode === 0 ? "Succès" : `Erreur (code : ${exitCode})`}
+              {exitCode === 0 ? "Success" : `Error (code: ${exitCode})`}
             </span>
           )}
 
           <div className="script-executor__section" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-            <span className="script-executor__section-label">Sortie standard</span>
+            <span className="script-executor__section-label">Standard output</span>
             <div ref={terminalRef} className="script-executor__terminal">
               <pre className="script-executor__stdout">
                 {lines.join("\n")}
@@ -300,7 +295,7 @@ export default function ScriptExecutor({
                     value={stdinValue}
                     onChange={(e) => setStdinValue(e.target.value)}
                     onKeyDown={handleStdinKeyDown}
-                    placeholder="Entrée pour envoyer, Ctrl+C pour interrompre"
+                    placeholder="Enter to send, Ctrl+C to interrupt"
                     autoFocus
                   />
                 </div>
@@ -310,7 +305,7 @@ export default function ScriptExecutor({
 
           {stderrOutput.trim() !== "" && (
             <div className="script-executor__section">
-              <span className="script-executor__section-label">Erreur standard</span>
+              <span className="script-executor__section-label">Standard error</span>
               <pre className="script-executor__stderr">{stderrOutput}</pre>
             </div>
           )}

@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`App > snapshot du rendu initial two-panel 1`] = `
+exports[`App > snapshot of initial two-panel render 1`] = `
 <div
   class="app-shell"
 >
@@ -13,7 +13,7 @@ exports[`App > snapshot du rendu initial two-panel 1`] = `
       <p
         class="category-manager__loading"
       >
-        Chargement...
+        Loading...
       </p>
     </div>
   </aside>
@@ -27,13 +27,13 @@ exports[`App > snapshot du rendu initial two-panel 1`] = `
         class="main-panel__tab main-panel__tab--history"
         type="button"
       >
-        Historique
+        History
       </button>
     </div>
     <p
       class="main-panel__empty"
     >
-      Sélectionnez un script dans la sidebar
+      Select a script from the sidebar
     </p>
   </main>
 </div>

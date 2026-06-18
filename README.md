@@ -1,164 +1,132 @@
 # ScriptLauncher
 
-Application desktop pour lancer des scripts depuis un dossier local.
+A native desktop app to browse and run scripts from local folders — built with Tauri 2, React, and Rust.
 
 ---
 
-## Fonctionnel
+## Features
 
-### Ce que fait l'application
-
-ScriptLauncher permet de sélectionner un dossier, de lister les scripts qu'il contient, et de les lancer d'un clic depuis une interface graphique native.
-
-### État actuel (S-02)
-
-L'application se lance et expose une commande backend pour lister les scripts d'un dossier. L'interface affiche encore "Hello ScriptLauncher" — la connexion UI arrive en S-05/S-06.
-
-### Roadmap
-
-| Story | Fonctionnalité |
-|-------|---------------|
-| S-01 ✅ | Initialisation — fenêtre de base |
-| S-02 ✅ | Lecture du système de fichiers (`file_system.rs`) |
-| S-03 | Exécution de scripts (`script_runner.rs`) |
-| S-04 | Configuration Tauri + permissions |
-| S-05 | Sélection de dossier (`FolderSelector`) |
-| S-06 | Liste des scripts (`ScriptList`) |
-| S-07 | Exécution depuis l'UI (`ScriptExecutor`) |
-| S-08 | Layout + styles |
+- **Categorized script browser** — organize scripts into named categories, each backed by a folder on disk
+- **One-click execution** — launch any script directly from the UI, with optional arguments
+- **Live streaming output** — stdout appears line by line as the script runs; stdin input is also supported
+- **Stop / SIGINT controls** — interrupt a running script with `^C` (SIGINT) or force-kill it (SIGKILL)
+- **Execution history** — the 50 most recent runs are persisted locally, with full stdout/stderr capture
+- **Multi-tab** — open multiple scripts side by side, each in its own tab
+- **Persistent config** — categories survive app restarts via an atomic JSON config file
 
 ---
 
-## Technique
+## Stack
 
-### Stack
-
-| Couche | Technologie |
-|--------|-------------|
-| Frontend | React 18 + TypeScript 5 + Vite 5 |
-| Backend natif | Rust (Tauri 2) |
-| Tests frontend | Vitest + Testing Library |
-| Tests Rust | `cargo test` |
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18 · TypeScript 5 · Vite 5 |
+| Native backend | Rust · Tauri 2 |
+| Frontend tests | Vitest · Testing Library |
+| Rust tests | `cargo test` |
 | CI | GitHub Actions |
-| Cibles | macOS (`.app`/`.dmg`) · Windows (`.exe`/`.msi`) |
+| Targets | macOS (`.app` / `.dmg`) · Windows (`.exe` / `.msi`) |
 
-### Structure du projet
+---
+
+## Project structure
 
 ```
 ScriptLauncher/
-├── ui/                  # Frontend React/TS/Vite
-│   ├── App.tsx          # Composant racine
-│   ├── main.tsx         # Point d'entrée React
-│   └── test/setup.ts    # Setup Vitest
-├── core/                # Backend Rust/Tauri
+├── ui/                          # React / TypeScript frontend
+│   ├── App.tsx                  # Root component — tab bar + layout
+│   ├── main.tsx                 # React entry point
+│   ├── types.ts                 # Shared types (mirror Rust structs)
+│   └── components/
+│       ├── CategoryManager.tsx  # Collapsible category tree (sidebar)
+│       ├── ScriptList.tsx       # Scripts in a folder
+│       ├── ScriptExecutor.tsx   # Run panel — output, args, stdin, stop
+│       ├── HistoryPanel.tsx     # Execution history viewer
+│       ├── FolderSelector.tsx   # Native folder picker
+│       └── Sidebar.tsx          # Sidebar shell
+├── core/                        # Rust / Tauri backend
 │   ├── src/
-│   │   ├── lib.rs       # Logique Tauri + commandes IPC
-│   │   └── main.rs      # Délègue à lib.rs::run()
-│   ├── capabilities/    # Permissions Tauri 2
+│   │   ├── lib.rs               # Tauri builder + command registration
+│   │   ├── main.rs              # Delegates to lib.rs::run()
+│   │   ├── file_system.rs       # list_scripts command
+│   │   ├── script_runner.rs     # run_script_stream / kill / stdin / ctrl-c
+│   │   ├── config.rs            # get_config / save_config (atomic write)
+│   │   └── history.rs           # append_history / get_history / clear_history
+│   ├── capabilities/
+│   │   └── default.json         # Tauri 2 capability declarations
 │   ├── Cargo.toml
-│   └── tauri.conf.json  # Config fenêtre, bundle, devUrl
-├── workflow/            # Système multi-agents (méta)
-│   ├── agents/          # Prompts agents
-│   ├── artifacts/       # Artefacts par story (gitignored)
-│   ├── prompt_pr/       # PRs d'évolution des prompts
-│   └── scripts/         # Scripts CI/GitHub
+│   └── tauri.conf.json          # Window, bundle, devUrl config
 ├── index.html
 ├── package.json
 └── vite.config.ts
 ```
 
-### S-02 · Backend file_system.rs
-
-**Fonctionnel**
-- Le backend peut lister tous les scripts d'un dossier donné.
-- Seuls les fichiers avec une extension reconnue sont retournés : `.sh` `.py` `.js` `.ts` `.ps1` `.bat` `.cmd` `.rb` `.fish`
-- Les résultats sont triés par nom, insensible à la casse.
-
-**Fichiers ajoutés/modifiés**
-
-| Fichier | Rôle |
-|---------|------|
-| `core/src/file_system.rs` | Module Rust — logique de lecture de dossier + filtrage par extension |
-| `core/src/lib.rs` | Enregistrement de la commande Tauri `list_scripts` |
-
-**Commande IPC exposée**
-
-```
-list_scripts(folder: String) → Result<Vec<ScriptInfo>, String>
-```
-
-```rust
-struct ScriptInfo {
-    name: String,       // nom du fichier
-    path: String,       // chemin absolu canonicalisé
-    extension: String,  // extension sans point, en minuscules
-}
-```
-
-**Décisions notables**
-- `fs::canonicalize` pour garantir un chemin absolu (portable macOS/Windows).
-- Extensions comparées en minuscules — `DEPLOY.SH` est reconnu.
-- Entrées individuellement illisibles ignorées silencieusement (robustesse CI).
-- `std::fs` uniquement — pas de plugin Tauri filesystem (ajouté en S-04 si besoin).
-
 ---
 
-### Architecture Rust (pattern Tauri 2)
+## Getting started
 
-`main.rs` est volontairement minimal — il délègue entièrement à `lib.rs::run()`. Toutes les commandes Tauri (`#[tauri::command]`) sont déclarées dans `lib.rs`. Cela permet de tester la logique Rust sans démarrer l'application.
-
-```
-main.rs  →  lib.rs::run()  →  tauri::Builder
-                                  └── register_commands()   (S-02+)
-                                  └── manage_state()        (S-02+)
-```
-
-### Identifiant de bundle
-
-`dev.theoclere.scriptlauncher` — figé depuis S-01, utilisé pour le stockage de données utilisateur (AppData macOS/Windows).
-
-### Décisions architecturales notables
-
-- **Pas de `@tauri-apps/vite-plugin`** : le package n'existe pas sur npm ; la configuration Vite reproduit manuellement les effets attendus (ports, env prefix, targets de build).
-- **Permissions Tauri 2** : système de `capabilities` déclaratif (fichier `core/capabilities/default.json`), pas l'ancien `allowlist` Tauri 1.
-- **TypeScript strict** : `strict: true`, `noUnusedLocals`, `noUnusedParameters` dès S-01.
-
-### Prérequis
+### Prerequisites
 
 - [Node.js](https://nodejs.org/) 20+
 - [Rust](https://rustup.rs/) stable
-- Sur macOS : Xcode Command Line Tools (`xcode-select --install`)
-- Sur Linux : `libwebkit2gtk-4.1-dev`, `libgtk-3-dev` (voir [Tauri prerequisites](https://tauri.app/start/prerequisites/))
+- macOS: Xcode Command Line Tools — `xcode-select --install`
+- Linux: `libwebkit2gtk-4.1-dev`, `libgtk-3-dev` (see [Tauri prerequisites](https://tauri.app/start/prerequisites/))
 
-### Démarrage rapide
+### Development
 
 ```bash
-# 1. Installer les dépendances npm
+# Install npm dependencies
 npm install
 
-# 2. Lancer en mode développement (hot-reload frontend + Rust)
+# Start with hot-reload (frontend + Rust)
 npm run tauri dev
 ```
 
-L'app s'ouvre dans une fenêtre native. Le frontend se recharge automatiquement à chaque modification dans `ui/`. Le backend Rust recompile à chaque modification dans `core/src/`.
+The app opens in a native window. The frontend reloads automatically on changes in `ui/`; the Rust backend recompiles on changes in `core/src/`.
 
-### Build de production
+### Production build
 
 ```bash
 npm run tauri build
 ```
 
-Les binaires et installeurs sont générés dans `core/target/release/bundle/` :
-- macOS : `.app` et `.dmg`
-- Windows : `.exe` et `.msi`
+Binaries and installers are generated in `core/target/release/bundle/`:
+- macOS: `.app` and `.dmg`
+- Windows: `.exe` and `.msi`
 
-### Vérifications qualité
+---
+
+## Quality checks
 
 ```bash
-npx tsc --noEmit           # vérifie les types frontend
-npm run test               # tests Vitest (frontend)
+# TypeScript type-check (frontend)
+npx tsc --noEmit
 
-cd core && cargo check     # compile Rust sans build
-cd core && cargo clippy    # lint Rust
-cd core && cargo test      # tests Rust
+# Frontend tests (Vitest)
+npm run test
+
+# Rust — compile check
+cd core && cargo check
+
+# Rust — linter
+cd core && cargo clippy
+
+# Rust — tests
+cd core && cargo test
 ```
+
+---
+
+## Architecture notes
+
+**IPC pattern** — `main.rs` is intentionally minimal; it delegates entirely to `lib.rs::run()`. All `#[tauri::command]` handlers are declared in their own modules (`file_system`, `script_runner`, `config`, `history`) and registered in `lib.rs`. This keeps the Rust logic testable without starting Tauri.
+
+**Script streaming** — `run_script_stream` spawns the script process and emits `script-stdout` events line by line. A `script-done` event fires when the process exits, carrying the exit code and any buffered stderr. The frontend listens to these Tauri events with `listen()`.
+
+**Atomic config writes** — `save_config` writes to a `.tmp` file on the same filesystem, then renames it atomically to `config.json`, preventing corruption on crash.
+
+**History persistence** — execution history is stored as JSONL (one JSON object per line) in the app data directory. The format is append-only; `clear_history` deletes the file entirely.
+
+**Tauri 2 capabilities** — permissions are declared declaratively in `core/capabilities/default.json`. Only `core:default` and `dialog:allow-open` are granted; no `fs:*` or `shell:*` access is exposed to the frontend.
+
+**Bundle identifier** — `dev.theoclere.scriptlauncher` — fixed at project init, used for OS-level app data storage (macOS / Windows).

@@ -2,26 +2,26 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-// Mock @tauri-apps/plugin-dialog (utilisé par CategoryManager)
+// Mock @tauri-apps/plugin-dialog (used by CategoryManager)
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: vi.fn(),
 }));
 
-// Mock @tauri-apps/api/core (utilisé par CategoryManager et ScriptExecutor)
+// Mock @tauri-apps/api/core (used by CategoryManager and ScriptExecutor)
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn().mockResolvedValue({ categories: [] }),
 }));
 
 describe('App', () => {
-  // Cas 1 : structure deux colonnes — app-shell présent
-  it('rend la structure two-panel avec la classe app-shell', () => {
+  // Case 1: two-column layout — app-shell present
+  it('renders the two-panel layout with app-shell class', () => {
     const { container } = render(<App />);
     const shell = container.querySelector('.app-shell');
     expect(shell).toBeInTheDocument();
   });
 
-  // Cas 2 : sidebar visible avec CategoryManager (S-09 remplace FolderSelector)
-  it('rend la sidebar avec le CategoryManager', () => {
+  // Case 2: sidebar visible with CategoryManager
+  it('renders the sidebar with CategoryManager', () => {
     const { container } = render(<App />);
     const sidebar = container.querySelector('aside.sidebar');
     expect(sidebar).toBeInTheDocument();
@@ -29,30 +29,29 @@ describe('App', () => {
     expect(categoryManager).toBeInTheDocument();
   });
 
-  // Cas 3 : panel droit affiche le message vide quand aucun onglet n'est ouvert
-  it('rend le panel droit avec le message vide quand aucun onglet ouvert', () => {
+  // Case 3: main panel shows empty message when no tab is open
+  it('renders the main panel with empty message when no tab is open', () => {
     render(<App />);
-    const emptyMsg = screen.getByText('Sélectionnez un script dans la sidebar');
+    const emptyMsg = screen.getByText('Select a script from the sidebar');
     expect(emptyMsg).toBeInTheDocument();
     const mainPanel = emptyMsg.closest('main.main-panel');
     expect(mainPanel).toBeInTheDocument();
   });
 
-  // Cas 4 : CategoryManager chargé dans la sidebar (S-09 — remplace ScriptList direct)
-  it('rend CategoryManager dans la sidebar (S-09)', async () => {
+  // Case 4: CategoryManager loaded in sidebar
+  it('renders CategoryManager in the sidebar', async () => {
     const { container } = render(<App />);
     const sidebar = container.querySelector('aside.sidebar');
     expect(sidebar).toBeInTheDocument();
-    // Titre "Catégories" affiché par CategoryManager
     const { waitFor } = await import('@testing-library/react');
     await waitFor(() => {
-      const title = screen.queryByText('Chargement...') || container.querySelector('.category-manager');
+      const title = screen.queryByText('Loading...') || container.querySelector('.category-manager');
       expect(title).toBeInTheDocument();
     });
   });
 
-  // Cas 5 : snapshot du rendu initial (structure two-panel)
-  it('snapshot du rendu initial two-panel', () => {
+  // Case 5: snapshot of initial two-panel render
+  it('snapshot of initial two-panel render', () => {
     const { container } = render(<App />);
     expect(container.firstChild).toMatchSnapshot();
   });

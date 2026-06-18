@@ -61,7 +61,7 @@ export default function ScriptList({
   if (folderPath === null) {
     return (
       <div className="script-list">
-        <p className="script-list__empty">Aucun dossier sélectionné</p>
+        <p className="script-list__empty">No folder selected</p>
       </div>
     );
   }
@@ -69,7 +69,7 @@ export default function ScriptList({
   if (loading) {
     return (
       <div className="script-list">
-        <p className="script-list__loading">Chargement...</p>
+        <p className="script-list__loading">Loading...</p>
       </div>
     );
   }
@@ -85,7 +85,7 @@ export default function ScriptList({
   if (scripts.length === 0) {
     return (
       <div className="script-list">
-        <p className="script-list__empty">Aucun script trouvé dans ce dossier</p>
+        <p className="script-list__empty">No scripts found in this folder</p>
       </div>
     );
   }

@@ -18,7 +18,7 @@ export default function FolderSelector({
         onFolderSelected(result);
       }
     } catch (err) {
-      console.error("Erreur lors de l'ouverture de la dialog :", err);
+      console.error("Failed to open dialog:", err);
     }
   }, [onFolderSelected]);
 
@@ -29,7 +29,7 @@ export default function FolderSelector({
         className="folder-selector__button"
         onClick={handleClick}
       >
-        Sélectionner un dossier
+        Select a folder
       </button>
       {selectedPath !== null && (
         <p className="folder-selector__path">{selectedPath}</p>

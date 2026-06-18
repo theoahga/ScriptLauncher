@@ -13,7 +13,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: vi.fn(),
 }));
 
-// Mock ScriptList pour isoler CategoryManager
+// Mock ScriptList to isolate CategoryManager
 vi.mock("./ScriptList", () => ({
   default: ({
     folderPath,
@@ -32,8 +32,8 @@ const emptyConfig: AppConfig = { categories: [] };
 
 const configWithCategories: AppConfig = {
   categories: [
-    { id: "cat-1", name: "Système", path: "/scripts/system" },
-    { id: "cat-2", name: "Réseau", path: "/scripts/network" },
+    { id: "cat-1", name: "System", path: "/scripts/system" },
+    { id: "cat-2", name: "Network", path: "/scripts/network" },
   ],
 };
 
@@ -42,69 +42,69 @@ describe("CategoryManager", () => {
     vi.clearAllMocks();
   });
 
-  // Cas 1 : config vide → affichage "Aucune catégorie"
-  it("affiche 'Aucune catégorie' quand get_config retourne une config vide", async () => {
+  // Case 1: empty config → "No categories" shown
+  it("shows 'No categories' when get_config returns an empty config", async () => {
     vi.mocked(invoke).mockResolvedValue(emptyConfig);
 
     render(<CategoryManager onScriptSelected={vi.fn()} />);
 
     await waitFor(() => {
-      expect(screen.getByText("Aucune catégorie")).toBeInTheDocument();
+      expect(screen.getByText("No categories")).toBeInTheDocument();
     });
     expect(invoke).toHaveBeenCalledWith("get_config");
   });
 
-  // Cas 2 : catégories affichées avec ScriptList pour chaque catégorie
-  it("affiche les catégories avec un ScriptList par catégorie", async () => {
+  // Case 2: categories shown with a ScriptList per category
+  it("shows categories with a ScriptList for each", async () => {
     vi.mocked(invoke).mockResolvedValue(configWithCategories);
 
     render(<CategoryManager onScriptSelected={vi.fn()} />);
 
     await waitFor(() => {
-      expect(screen.getByText("Système")).toBeInTheDocument();
-      expect(screen.getByText("Réseau")).toBeInTheDocument();
+      expect(screen.getByText("System")).toBeInTheDocument();
+      expect(screen.getByText("Network")).toBeInTheDocument();
     });
 
-    // Les deux ScriptList sont rendus (catégories dépliées par défaut)
+    // Both ScriptLists are rendered (categories expanded by default)
     expect(screen.getByTestId("scriptlist-/scripts/system")).toBeInTheDocument();
     expect(screen.getByTestId("scriptlist-/scripts/network")).toBeInTheDocument();
   });
 
-  // Cas 3 : collapse/expand d'une catégorie
-  it("replie et déplie une catégorie au clic sur son header", async () => {
+  // Case 3: collapse/expand a category
+  it("collapses and expands a category on header click", async () => {
     vi.mocked(invoke).mockResolvedValue(configWithCategories);
 
     render(<CategoryManager onScriptSelected={vi.fn()} />);
 
     await waitFor(() => {
-      expect(screen.getByText("Système")).toBeInTheDocument();
+      expect(screen.getByText("System")).toBeInTheDocument();
     });
 
-    // Initialement dépliée : ScriptList visible
+    // Initially expanded: ScriptList visible
     expect(screen.getByTestId("scriptlist-/scripts/system")).toBeInTheDocument();
 
-    // Cliquer sur le header de "Système" pour replier
-    // Utilise getAllByRole + filter pour éviter la collision avec le bouton "Supprimer"
+    // Click the "System" header to collapse
+    // Use getAllByRole + filter to avoid collision with the delete button
+    // Header has aria-label "Category System", delete has "Delete category System"
     const headers = screen.getAllByRole("button", {
-      name: /Catégorie Système/i,
+      name: /Category System/i,
     });
-    // Le header a aria-label "Catégorie Système", le delete a "Supprimer la catégorie Système"
-    // On prend celui dont l'aria-label est exactement "Catégorie Système"
-    const systemeHeader = headers.find(
-      (el) => el.getAttribute("aria-label") === "Catégorie Système"
+    // Pick the one with aria-label exactly "Category System"
+    const systemHeader = headers.find(
+      (el) => el.getAttribute("aria-label") === "Category System"
     )!;
-    fireEvent.click(systemeHeader);
+    fireEvent.click(systemHeader);
 
-    // Après collapse : ScriptList de Système n'est plus visible
+    // After collapse: System ScriptList is no longer visible
     expect(
       screen.queryByTestId("scriptlist-/scripts/system")
     ).not.toBeInTheDocument();
 
-    // "Réseau" reste dépliée
+    // "Network" remains expanded
     expect(screen.getByTestId("scriptlist-/scripts/network")).toBeInTheDocument();
 
-    // Re-cliquer pour déplier à nouveau
-    fireEvent.click(systemeHeader);
+    // Re-click to expand again
+    fireEvent.click(systemHeader);
     await waitFor(() => {
       expect(
         screen.getByTestId("scriptlist-/scripts/system")
@@ -112,34 +112,34 @@ describe("CategoryManager", () => {
     });
   });
 
-  // Cas 4 : ajout d'une catégorie → save_config appelé
-  it("appelle save_config avec la nouvelle catégorie lors de l'ajout", async () => {
+  // Case 4: add a category → save_config called
+  it("calls save_config with the new category on add", async () => {
     vi.mocked(invoke).mockResolvedValue(emptyConfig);
     vi.mocked(open).mockResolvedValue("/scripts/new-folder");
 
     render(<CategoryManager onScriptSelected={vi.fn()} />);
 
     await waitFor(() => {
-      expect(screen.getByText("Aucune catégorie")).toBeInTheDocument();
+      expect(screen.getByText("No categories")).toBeInTheDocument();
     });
 
-    // Cliquer sur "+"
+    // Click "+"
     const addBtn = screen.getByRole("button", {
-      name: /Ajouter une catégorie/i,
+      name: /Add a category/i,
     });
     fireEvent.click(addBtn);
 
-    // Formulaire inline visible, saisir un nom
-    const input = screen.getByPlaceholderText("Nom de la catégorie");
+    // Inline form visible, enter a name
+    const input = screen.getByPlaceholderText("Category name");
     fireEvent.change(input, { target: { value: "Backup" } });
 
-    // Cliquer sur "Choisir dossier" — déclenche open() puis invoke save_config
+    // Click "Choose folder" — triggers open() then invoke save_config
     vi.mocked(invoke).mockImplementation((cmd: string) => {
       if (cmd === "save_config") return Promise.resolve(undefined);
       return Promise.resolve(emptyConfig);
     });
 
-    const confirmBtn = screen.getByRole("button", { name: /Choisir dossier/i });
+    const confirmBtn = screen.getByRole("button", { name: /Choose folder/i });
     fireEvent.click(confirmBtn);
 
     await waitFor(() => {
@@ -154,21 +154,21 @@ describe("CategoryManager", () => {
     });
   });
 
-  // Cas 5 : suppression d'une catégorie → save_config appelé
-  it("appelle save_config sans la catégorie supprimée lors de la suppression", async () => {
+  // Case 5: delete a category → save_config called
+  it("calls save_config without the deleted category on delete", async () => {
     vi.mocked(invoke).mockResolvedValue(configWithCategories);
 
     render(<CategoryManager onScriptSelected={vi.fn()} />);
 
     await waitFor(() => {
-      expect(screen.getByText("Système")).toBeInTheDocument();
+      expect(screen.getByText("System")).toBeInTheDocument();
     });
 
     vi.mocked(invoke).mockResolvedValue(undefined);
 
-    // Cliquer sur le bouton supprimer de "Système"
+    // Click the delete button for "System"
     const deleteBtn = screen.getByRole("button", {
-      name: /Supprimer la catégorie Système/i,
+      name: /Delete category System/i,
     });
     fireEvent.click(deleteBtn);
 
@@ -183,56 +183,54 @@ describe("CategoryManager", () => {
     });
   });
 
-  // Cas 6 : sélection d'un script → callback appelé
-  it("passe onScriptSelected aux ScriptList des catégories", async () => {
+  // Case 6: script selection → callback passed to ScriptLists
+  it("passes onScriptSelected to the ScriptLists of each category", async () => {
     vi.mocked(invoke).mockResolvedValue(configWithCategories);
 
     const onScriptSelected = vi.fn();
     render(<CategoryManager onScriptSelected={onScriptSelected} />);
 
     await waitFor(() => {
-      // Vérifie que les ScriptList sont rendus avec le bon folderPath
+      // Verify ScriptLists are rendered with the correct folderPath
       expect(
         screen.getByTestId("scriptlist-/scripts/system")
       ).toBeInTheDocument();
     });
 
-    // La prop onScriptSelected est transmise — le mock ScriptList ne l'appelle pas
-    // mais on peut vérifier qu'elle n'est pas appelée sans interaction
     expect(onScriptSelected).not.toHaveBeenCalled();
   });
 
-  // Cas 7 : état de chargement
-  it("affiche 'Chargement...' pendant le chargement initial", () => {
+  // Case 7: loading state
+  it("shows 'Loading...' during initial load", () => {
     vi.mocked(invoke).mockReturnValue(new Promise(() => {}));
 
     render(<CategoryManager onScriptSelected={vi.fn()} />);
 
-    expect(screen.getByText("Chargement...")).toBeInTheDocument();
+    expect(screen.getByText("Loading...")).toBeInTheDocument();
   });
 
-  // Cas 8 : annulation du formulaire d'ajout
-  it("masque le formulaire quand l'utilisateur annule l'ajout", async () => {
+  // Case 8: cancel add form
+  it("hides the form when the user cancels adding", async () => {
     vi.mocked(invoke).mockResolvedValue(emptyConfig);
 
     render(<CategoryManager onScriptSelected={vi.fn()} />);
 
     await waitFor(() => {
-      expect(screen.getByText("Aucune catégorie")).toBeInTheDocument();
+      expect(screen.getByText("No categories")).toBeInTheDocument();
     });
 
-    // Ouvrir le formulaire
+    // Open the form
     fireEvent.click(
-      screen.getByRole("button", { name: /Ajouter une catégorie/i })
+      screen.getByRole("button", { name: /Add a category/i })
     );
     expect(
-      screen.getByPlaceholderText("Nom de la catégorie")
+      screen.getByPlaceholderText("Category name")
     ).toBeInTheDocument();
 
-    // Annuler
-    fireEvent.click(screen.getByRole("button", { name: /Annuler/i }));
+    // Cancel
+    fireEvent.click(screen.getByRole("button", { name: /Cancel/i }));
     expect(
-      screen.queryByPlaceholderText("Nom de la catégorie")
+      screen.queryByPlaceholderText("Category name")
     ).not.toBeInTheDocument();
   });
 });

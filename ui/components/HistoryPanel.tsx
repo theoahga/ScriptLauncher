@@ -4,13 +4,13 @@ import { HistoryEntry } from "../types";
 import "./HistoryPanel.css";
 
 interface HistoryPanelProps {
-  /** Incrémenté par App.tsx après chaque append_history pour forcer un rechargement */
+  /** Incremented by App.tsx after each append_history to force a reload */
   historyVersion: number;
 }
 
 const HISTORY_LIMIT = 50;
 
-/** Formate une durée en ms en chaîne lisible (ex: "1.2s", "42ms") */
+/** Formats a duration in ms to a human-readable string (e.g., "1.2s", "42ms") */
 function formatDuration(ms: number): string {
   if (ms >= 1000) {
     return `${(ms / 1000).toFixed(1)}s`;
@@ -25,7 +25,7 @@ const DATE_FORMAT_OPTIONS = {
   minute: "2-digit",
 } as const satisfies Intl.DateTimeFormatOptions;
 
-/** Formate un timestamp ISO 8601 en date/heure locale courte */
+/** Formats an ISO 8601 timestamp to a short local date/time string */
 function formatDate(iso: string): string {
   try {
     return new Date(iso).toLocaleString(undefined, DATE_FORMAT_OPTIONS);
@@ -42,7 +42,6 @@ export default function HistoryPanel({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Chargement de l'historique au montage et à chaque historyVersion
   useEffect(() => {
     let cancelled = false;
 
@@ -55,7 +54,6 @@ export default function HistoryPanel({
         });
         if (!cancelled) {
           setEntries(data);
-          // Si l'entrée sélectionnée n'est plus dans la liste, la désélectionner
           setSelectedEntry((prev) => {
             if (prev === null) return null;
             const found = data.find((e) => e.id === prev.id);
@@ -86,7 +84,7 @@ export default function HistoryPanel({
 
   const handleClear = useCallback(async () => {
     const confirmed = window.confirm(
-      "Effacer tout l'historique des exécutions ? Cette action est irréversible.",
+      "Clear all execution history? This action cannot be undone.",
     );
     if (!confirmed) return;
 
@@ -102,7 +100,7 @@ export default function HistoryPanel({
   if (isLoading) {
     return (
       <div className="history-panel">
-        <p className="history-panel__loading">Chargement de l'historique...</p>
+        <p className="history-panel__loading">Loading history...</p>
       </div>
     );
   }
@@ -110,14 +108,14 @@ export default function HistoryPanel({
   return (
     <div className="history-panel">
       <div className="history-panel__toolbar">
-        <span className="history-panel__title">Historique</span>
+        <span className="history-panel__title">History</span>
         <button
           type="button"
           className="history-panel__clear-btn"
           onClick={handleClear}
           disabled={entries.length === 0}
         >
-          Effacer l'historique
+          Clear history
         </button>
       </div>
 
@@ -128,7 +126,7 @@ export default function HistoryPanel({
       <div className="history-panel__body">
         <div className="history-panel__list">
           {entries.length === 0 ? (
-            <p className="history-panel__empty">Aucune exécution</p>
+            <p className="history-panel__empty">No executions</p>
           ) : (
             <ul className="history-panel__entries">
               {entries.map((entry) => (
@@ -178,27 +176,27 @@ export default function HistoryPanel({
                   }
                 >
                   {selectedEntry.exit_code === 0
-                    ? "Succès"
-                    : `Erreur (code : ${selectedEntry.exit_code})`}
+                    ? "Success"
+                    : `Error (code: ${selectedEntry.exit_code})`}
                 </span>
               </span>
             </div>
 
             <div className="history-panel__detail-section">
               <span className="history-panel__detail-label">
-                Sortie standard
+                Standard output
               </span>
               <pre className="history-panel__detail-stdout">
                 {selectedEntry.stdout.trim() !== ""
                   ? selectedEntry.stdout
-                  : "(vide)"}
+                  : "(empty)"}
               </pre>
             </div>
 
             {selectedEntry.stderr.trim() !== "" && (
               <div className="history-panel__detail-section">
                 <span className="history-panel__detail-label">
-                  Erreur standard
+                  Standard error
                 </span>
                 <pre className="history-panel__detail-stderr">
                   {selectedEntry.stderr}

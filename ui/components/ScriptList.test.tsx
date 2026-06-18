@@ -21,41 +21,41 @@ describe("ScriptList", () => {
     vi.clearAllMocks();
   });
 
-  // Cas 1 : folderPath null
-  it("affiche 'Aucun dossier sélectionné' quand folderPath est null", () => {
+  // Case 1: folderPath is null
+  it("shows 'No folder selected' when folderPath is null", () => {
     render(<ScriptList folderPath={null} onScriptSelected={vi.fn()} />);
 
     expect(
-      screen.getByText("Aucun dossier sélectionné"),
+      screen.getByText("No folder selected"),
     ).toBeInTheDocument();
     expect(invoke).not.toHaveBeenCalled();
   });
 
-  // Cas 2 : état de chargement
-  it("affiche 'Chargement...' pendant que invoke est en cours", async () => {
-    // invoke ne résout jamais → on reste en loading
+  // Case 2: loading state
+  it("shows 'Loading...' while invoke is pending", async () => {
+    // invoke never resolves → stays in loading state
     vi.mocked(invoke).mockReturnValue(new Promise(() => {}));
 
     render(<ScriptList folderPath="/scripts" onScriptSelected={vi.fn()} />);
 
-    expect(screen.getByText("Chargement...")).toBeInTheDocument();
+    expect(screen.getByText("Loading...")).toBeInTheDocument();
   });
 
-  // Cas 3 : liste vide
-  it("affiche 'Aucun script trouvé' quand invoke retourne un tableau vide", async () => {
+  // Case 3: empty list
+  it("shows 'No scripts found' when invoke returns an empty array", async () => {
     vi.mocked(invoke).mockResolvedValue([]);
 
     render(<ScriptList folderPath="/scripts" onScriptSelected={vi.fn()} />);
 
     await waitFor(() => {
       expect(
-        screen.getByText("Aucun script trouvé dans ce dossier"),
+        screen.getByText("No scripts found in this folder"),
       ).toBeInTheDocument();
     });
   });
 
-  // Cas 4 : liste avec items
-  it("affiche les scripts retournés par invoke", async () => {
+  // Case 4: list with items
+  it("displays scripts returned by invoke", async () => {
     vi.mocked(invoke).mockResolvedValue(mockScripts);
 
     render(<ScriptList folderPath="/scripts" onScriptSelected={vi.fn()} />);
@@ -66,27 +66,27 @@ describe("ScriptList", () => {
       expect(screen.getByText("build.js")).toBeInTheDocument();
     });
 
-    // Extensions affichées séparément avec le point
+    // Extensions shown separately with a dot prefix
     expect(screen.getByText(".sh")).toBeInTheDocument();
     expect(screen.getByText(".py")).toBeInTheDocument();
     expect(screen.getByText(".js")).toBeInTheDocument();
   });
 
-  // Cas 5 : erreur Rust
-  it("affiche le message d'erreur retourné par Rust quand invoke rejette", async () => {
-    vi.mocked(invoke).mockRejectedValue("Dossier introuvable : /scripts");
+  // Case 5: Rust error
+  it("shows the error message returned by Rust when invoke rejects", async () => {
+    vi.mocked(invoke).mockRejectedValue("Folder not found: /scripts");
 
     render(<ScriptList folderPath="/scripts" onScriptSelected={vi.fn()} />);
 
     await waitFor(() => {
       expect(
-        screen.getByText("Dossier introuvable : /scripts"),
+        screen.getByText("Folder not found: /scripts"),
       ).toBeInTheDocument();
     });
   });
 
-  // Cas 6 : appel invoke avec les bons paramètres
-  it("appelle invoke avec 'list_scripts' et le folderPath correct", async () => {
+  // Case 6: invoke called with correct parameters
+  it("calls invoke with 'list_scripts' and the correct folderPath", async () => {
     vi.mocked(invoke).mockResolvedValue([]);
 
     render(<ScriptList folderPath="/my/folder" onScriptSelected={vi.fn()} />);
@@ -98,8 +98,8 @@ describe("ScriptList", () => {
     });
   });
 
-  // Cas 7 : appel onScriptSelected au clic
-  it("appelle onScriptSelected avec le bon script au clic", async () => {
+  // Case 7: onScriptSelected called on click
+  it("calls onScriptSelected with the correct script on click", async () => {
     vi.mocked(invoke).mockResolvedValue(mockScripts);
     const onScriptSelected = vi.fn();
 
@@ -117,8 +117,8 @@ describe("ScriptList", () => {
     expect(onScriptSelected).toHaveBeenCalledWith(mockScripts[0]);
   });
 
-  // Cas 8 : changement de folderPath déclenche un nouvel invoke
-  it("relance invoke quand folderPath change", async () => {
+  // Case 8: folderPath change triggers a new invoke
+  it("re-runs invoke when folderPath changes", async () => {
     vi.mocked(invoke).mockResolvedValue([]);
 
     const { rerender } = render(
@@ -138,8 +138,8 @@ describe("ScriptList", () => {
     expect(invoke).toHaveBeenCalledTimes(2);
   });
 
-  // Cas 9 : folderPath passe de null à une valeur → déclenche invoke
-  it("déclenche invoke quand folderPath passe de null à une valeur", async () => {
+  // Case 9: folderPath changes from null to a value → triggers invoke
+  it("triggers invoke when folderPath changes from null to a value", async () => {
     vi.mocked(invoke).mockResolvedValue(mockScripts);
 
     const { rerender } = render(
@@ -147,7 +147,7 @@ describe("ScriptList", () => {
     );
 
     expect(invoke).not.toHaveBeenCalled();
-    expect(screen.getByText("Aucun dossier sélectionné")).toBeInTheDocument();
+    expect(screen.getByText("No folder selected")).toBeInTheDocument();
 
     rerender(<ScriptList folderPath="/scripts" onScriptSelected={vi.fn()} />);
 
@@ -158,8 +158,8 @@ describe("ScriptList", () => {
     expect(invoke).toHaveBeenCalledOnce();
   });
 
-  // Cas 10 : script sans extension — affichage sans span extension
-  it("n'affiche pas le span extension quand extension est vide", async () => {
+  // Case 10: script without extension — no extension span rendered
+  it("does not render the extension span when extension is empty", async () => {
     const scriptWithoutExt: ScriptInfo[] = [
       { name: "Makefile", path: "/scripts/Makefile", extension: "" },
     ];
@@ -171,7 +171,7 @@ describe("ScriptList", () => {
       expect(screen.getByText("Makefile")).toBeInTheDocument();
     });
 
-    // Le span extension avec "." ne doit pas être présent
+    // The extension span with "." must not be present
     expect(screen.queryByText(/^\./)).not.toBeInTheDocument();
   });
 });

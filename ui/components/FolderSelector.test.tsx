@@ -14,30 +14,30 @@ describe("FolderSelector", () => {
     vi.clearAllMocks();
   });
 
-  it("affiche le bouton 'Sélectionner un dossier' au rendu initial", () => {
+  it("renders the 'Select a folder' button on initial render", () => {
     render(<FolderSelector onFolderSelected={vi.fn()} />);
 
     const button = screen.getByRole("button", {
-      name: "Sélectionner un dossier",
+      name: "Select a folder",
     });
     expect(button).toBeInTheDocument();
     expect(button).toHaveAttribute("type", "button");
   });
 
-  it("n'affiche pas de chemin au rendu initial", () => {
+  it("does not show a path on initial render", () => {
     render(<FolderSelector onFolderSelected={vi.fn()} />);
 
-    // Aucun paragraphe de chemin ne doit être présent
+    // No path paragraph should be present
     expect(screen.queryByRole("paragraph")).not.toBeInTheDocument();
   });
 
-  it("ouvre la dialog native au clic sur le bouton", async () => {
+  it("opens the native dialog on button click", async () => {
     vi.mocked(open).mockResolvedValue(null);
 
     render(<FolderSelector onFolderSelected={vi.fn()} />);
 
     const button = screen.getByRole("button", {
-      name: "Sélectionner un dossier",
+      name: "Select a folder",
     });
     fireEvent.click(button);
 
@@ -47,7 +47,7 @@ describe("FolderSelector", () => {
     });
   });
 
-  it("affiche le chemin et appelle onFolderSelected quand un dossier est sélectionné", async () => {
+  it("shows the path and calls onFolderSelected when a folder is selected", async () => {
     const mockPath = "/Users/test/scripts";
     vi.mocked(open).mockResolvedValue(mockPath);
     const onFolderSelected = vi.fn();
@@ -55,7 +55,7 @@ describe("FolderSelector", () => {
     render(<FolderSelector onFolderSelected={onFolderSelected} />);
 
     const button = screen.getByRole("button", {
-      name: "Sélectionner un dossier",
+      name: "Select a folder",
     });
     fireEvent.click(button);
 
@@ -67,14 +67,14 @@ describe("FolderSelector", () => {
     expect(onFolderSelected).toHaveBeenCalledWith(mockPath);
   });
 
-  it("ne change pas l'état et n'appelle pas onFolderSelected quand l'utilisateur annule (null)", async () => {
+  it("does not update state or call onFolderSelected when the user cancels (null)", async () => {
     vi.mocked(open).mockResolvedValue(null);
     const onFolderSelected = vi.fn();
 
     render(<FolderSelector onFolderSelected={onFolderSelected} />);
 
     const button = screen.getByRole("button", {
-      name: "Sélectionner un dossier",
+      name: "Select a folder",
     });
     fireEvent.click(button);
 
@@ -82,40 +82,40 @@ describe("FolderSelector", () => {
       expect(open).toHaveBeenCalledOnce();
     });
 
-    // Pas de chemin affiché, callback non appelé
+    // No path shown, callback not called
     expect(screen.queryByRole("paragraph")).not.toBeInTheDocument();
     expect(onFolderSelected).not.toHaveBeenCalled();
   });
 
-  it("gère silencieusement une erreur de la dialog sans afficher d'erreur ni changer l'état", async () => {
-    vi.mocked(open).mockRejectedValue(new Error("Permission refusée"));
+  it("handles a dialog error silently without showing an error or changing state", async () => {
+    vi.mocked(open).mockRejectedValue(new Error("Permission denied"));
     const onFolderSelected = vi.fn();
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     render(<FolderSelector onFolderSelected={onFolderSelected} />);
 
     const button = screen.getByRole("button", {
-      name: "Sélectionner un dossier",
+      name: "Select a folder",
     });
     fireEvent.click(button);
 
     await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith(
-        "Erreur lors de l'ouverture de la dialog :",
+        "Failed to open dialog:",
         expect.any(Error),
       );
     });
 
-    // Aucun changement d'état
+    // No state change
     expect(screen.queryByRole("paragraph")).not.toBeInTheDocument();
     expect(onFolderSelected).not.toHaveBeenCalled();
 
     consoleSpy.mockRestore();
   });
 
-  it("met à jour le chemin affiché si un nouveau dossier est sélectionné après un premier", async () => {
-    const firstPath = "/Users/test/dossier1";
-    const secondPath = "/Users/test/dossier2";
+  it("updates the displayed path when a new folder is selected after the first", async () => {
+    const firstPath = "/Users/test/folder1";
+    const secondPath = "/Users/test/folder2";
     vi.mocked(open)
       .mockResolvedValueOnce(firstPath)
       .mockResolvedValueOnce(secondPath);
@@ -125,7 +125,7 @@ describe("FolderSelector", () => {
     render(<FolderSelector onFolderSelected={onFolderSelected} />);
 
     const button = screen.getByRole("button", {
-      name: "Sélectionner un dossier",
+      name: "Select a folder",
     });
 
     fireEvent.click(button);

@@ -1,13 +1,3 @@
-// CategoryManager.tsx — S-09
-//
-// Remplace FolderSelector. Affiche une arborescence de catégories collapsibles.
-// Chaque catégorie = nœud (header cliquable + ScriptList interne).
-//
-// ADR-02 : saisie du nom via input inline (pas window.prompt)
-// ADR-03 : UUID généré via crypto.randomUUID()
-// ADR-04 : CategoryManager est auto-suffisant (charge/sauve la config)
-// ADR-05 : état collapsed par category.id dans Record<string, boolean>
-
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -28,14 +18,12 @@ export default function CategoryManager({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ADR-05 : collapsed[id] = true → catégorie repliée, false → dépliée
+  // collapsed[id] = true → category is collapsed, false → expanded
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  // ADR-02 : état pour l'ajout inline d'une catégorie
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState("");
 
-  // Chargement initial de la config
   useEffect(() => {
     let cancelled = false;
 
@@ -46,8 +34,7 @@ export default function CategoryManager({
         const result = await invoke<AppConfig>("get_config");
         if (!cancelled) {
           setConfig(result);
-          // Initialiser toutes les catégories comme dépliées (expanded)
-          // Modernizer: Object.fromEntries + map idiomatique (pas de mutation)
+          // Initialize all categories as expanded
           setCollapsed(
             Object.fromEntries(result.categories.map((cat) => [cat.id, false]))
           );
@@ -70,7 +57,6 @@ export default function CategoryManager({
     };
   }, []);
 
-  // Sauvegarde de la config et mise à jour de l'état
   const persistConfig = useCallback(async (newConfig: AppConfig) => {
     try {
       await invoke("save_config", { config: newConfig });
@@ -80,12 +66,10 @@ export default function CategoryManager({
     }
   }, []);
 
-  // Toggle collapse/expand d'une catégorie
   const handleToggle = useCallback((id: string) => {
     setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
   }, []);
 
-  // Suppression d'une catégorie
   const handleDelete = useCallback(
     async (id: string) => {
       const newConfig: AppConfig = {
@@ -96,34 +80,29 @@ export default function CategoryManager({
     [config, persistConfig]
   );
 
-  // Démarrer l'ajout
   const handleStartAdd = useCallback(() => {
-    // ADR-02 : évite double-clic si déjà en mode ajout
     if (!isAdding) {
       setIsAdding(true);
       setNewName("");
     }
   }, [isAdding]);
 
-  // Annuler l'ajout
   const handleCancelAdd = useCallback(() => {
     setIsAdding(false);
     setNewName("");
   }, []);
 
-  // Confirmer l'ajout : ouvre la dialog dossier, puis sauvegarde
   const handleConfirmAdd = useCallback(async () => {
     const trimmed = newName.trim();
-    if (trimmed === "") return; // validation : nom non vide
+    if (trimmed === "") return; // validate: non-empty name
 
     try {
       const selectedPath = await open({ directory: true });
       if (selectedPath === null) {
-        // L'utilisateur a annulé la dialog — on reste en mode ajout
+        // User cancelled the dialog — stay in add mode
         return;
       }
 
-      // ADR-03 : UUID v4 via crypto.randomUUID()
       const newCategory: Category = {
         id: crypto.randomUUID(),
         name: trimmed,
@@ -136,7 +115,7 @@ export default function CategoryManager({
 
       await persistConfig(newConfig);
 
-      // Initialiser la nouvelle catégorie comme dépliée
+      // Initialize new category as expanded
       setCollapsed((prev) => ({ ...prev, [newCategory.id]: false }));
 
       setIsAdding(false);
@@ -149,7 +128,7 @@ export default function CategoryManager({
   if (loading) {
     return (
       <div className="category-manager">
-        <p className="category-manager__loading">Chargement...</p>
+        <p className="category-manager__loading">Loading...</p>
       </div>
     );
   }
@@ -165,24 +144,23 @@ export default function CategoryManager({
   return (
     <div className="category-manager">
       <div className="category-manager__header">
-        <span className="category-manager__title">Catégories</span>
+        <span className="category-manager__title">Categories</span>
         <button
           type="button"
           className="category-manager__add-btn"
           onClick={handleStartAdd}
-          aria-label="Ajouter une catégorie"
+          aria-label="Add a category"
         >
           +
         </button>
       </div>
 
-      {/* Formulaire inline d'ajout — ADR-02 */}
       {isAdding && (
         <div className="category-manager__add-form">
           <input
             type="text"
             className="category-manager__name-input"
-            placeholder="Nom de la catégorie"
+            placeholder="Category name"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => {
@@ -198,22 +176,21 @@ export default function CategoryManager({
               onClick={handleConfirmAdd}
               disabled={newName.trim() === ""}
             >
-              Choisir dossier
+              Choose folder
             </button>
             <button
               type="button"
               className="category-manager__cancel-btn"
               onClick={handleCancelAdd}
             >
-              Annuler
+              Cancel
             </button>
           </div>
         </div>
       )}
 
-      {/* Liste des catégories */}
       {config.categories.length === 0 && !isAdding && (
-        <p className="category-manager__empty">Aucune catégorie</p>
+        <p className="category-manager__empty">No categories</p>
       )}
 
       {config.categories.map((category) => (
@@ -227,7 +204,7 @@ export default function CategoryManager({
               if (e.key === "Enter" || e.key === " ") handleToggle(category.id);
             }}
             aria-expanded={!collapsed[category.id]}
-            aria-label={`Catégorie ${category.name}`}
+            aria-label={`Category ${category.name}`}
           >
             <span className="category-manager__chevron">
               {collapsed[category.id] ? "▶" : "▼"}
@@ -242,13 +219,12 @@ export default function CategoryManager({
                 e.stopPropagation();
                 handleDelete(category.id);
               }}
-              aria-label={`Supprimer la catégorie ${category.name}`}
+              aria-label={`Delete category ${category.name}`}
             >
               ✕
             </button>
           </div>
 
-          {/* Corps de la catégorie : ScriptList (si dépliée) */}
           {!collapsed[category.id] && (
             <div className="category-manager__category-body">
               <ScriptList

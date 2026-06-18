@@ -9,3 +9,7 @@ dist/
 *.log
 notes.txt
 *.tsbuildinfo
+# Claude / workflow internal files
+CLAUDE.md
+workflow/
+.claude/

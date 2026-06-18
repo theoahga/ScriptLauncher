@@ -14,11 +14,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-/// Lance l'application Tauri.
+/// Launches the Tauri application.
 ///
 /// # Panics
 ///
-/// Panique si Tauri ne peut pas démarrer (contexte invalide, erreur de configuration).
+/// Panics if Tauri cannot start (invalid context or configuration error).
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -44,20 +44,12 @@ pub fn run() {
 
 #[cfg(test)]
 mod config_tests {
-    // -------------------------------------------------------------------------
-    // Tests de configuration S-04 — parse statique des fichiers JSON de config
-    // Utilise include_str! pour intégrer les fichiers au binaire de test :
-    // pas d'accès FS au runtime, pas de dépendance à l'emplacement du CWD.
-    // -------------------------------------------------------------------------
-
     const TAURI_CONF: &str = include_str!("../tauri.conf.json");
     const CAPABILITIES: &str = include_str!("../capabilities/default.json");
 
-    // ------------------------------------------------------------------
-    // AC-1 : capabilities/default.json — permissions déclarées
-    // ------------------------------------------------------------------
+    // ── capabilities/default.json ──────────────────────────────────────────────
 
-    /// CA-1a : dialog:allow-open est présent dans les permissions.
+    /// dialog:allow-open is declared in permissions.
     #[test]
     fn test_capabilities_contains_dialog_allow_open() {
         let v: serde_json::Value =
@@ -74,7 +66,7 @@ mod config_tests {
         );
     }
 
-    /// CA-1b : core:default est présent dans les permissions (base IPC).
+    /// core:default is declared in permissions (base IPC).
     #[test]
     fn test_capabilities_contains_core_default() {
         let v: serde_json::Value =
@@ -89,7 +81,7 @@ mod config_tests {
         );
     }
 
-    /// CA-1c : principe du moindre privilège — aucune permission fs:* ni shell:*.
+    /// Least privilege — no fs:* or shell:* permissions.
     #[test]
     fn test_capabilities_no_fs_or_shell_permissions() {
         let v: serde_json::Value =
@@ -110,7 +102,7 @@ mod config_tests {
         }
     }
 
-    /// CA-1d : le fichier cible la fenêtre "main".
+    /// The file targets the "main" window.
     #[test]
     fn test_capabilities_targets_main_window() {
         let v: serde_json::Value =
@@ -125,7 +117,7 @@ mod config_tests {
         );
     }
 
-    /// CA-1e : exactement deux permissions déclarées (périmètre minimal).
+    /// Exactly two permissions declared (minimal scope).
     #[test]
     fn test_capabilities_exactly_two_permissions() {
         let v: serde_json::Value =
@@ -141,11 +133,9 @@ mod config_tests {
         );
     }
 
-    // ------------------------------------------------------------------
-    // AC-2 : tauri.conf.json — champs de configuration
-    // ------------------------------------------------------------------
+    // ── tauri.conf.json ────────────────────────────────────────────────────────
 
-    /// CA-2a : productName est "ScriptLauncher".
+    /// productName is "ScriptLauncher".
     #[test]
     fn test_tauri_conf_product_name() {
         let v: serde_json::Value =
@@ -157,7 +147,7 @@ mod config_tests {
         );
     }
 
-    /// CA-2b : identifier est "dev.theoclere.scriptlauncher".
+    /// identifier is "dev.theoclere.scriptlauncher".
     #[test]
     fn test_tauri_conf_identifier() {
         let v: serde_json::Value =
@@ -169,7 +159,7 @@ mod config_tests {
         );
     }
 
-    /// CA-2c : version est "0.1.0".
+    /// version is "0.1.0".
     #[test]
     fn test_tauri_conf_version() {
         let v: serde_json::Value =
@@ -181,7 +171,7 @@ mod config_tests {
         );
     }
 
-    /// CA-2d : bundle.active est true.
+    /// bundle.active is true.
     #[test]
     fn test_tauri_conf_bundle_active() {
         let v: serde_json::Value =
@@ -193,7 +183,7 @@ mod config_tests {
         );
     }
 
-    /// CA-2e : bundle.icon est un tableau non vide.
+    /// bundle.icon is a non-empty array.
     #[test]
     fn test_tauri_conf_bundle_icon_non_empty() {
         let v: serde_json::Value =
@@ -207,7 +197,7 @@ mod config_tests {
         );
     }
 
-    /// CA-2f : app.security.csp est défini et non null.
+    /// app.security.csp is defined and non-null.
     #[test]
     fn test_tauri_conf_csp_defined() {
         let v: serde_json::Value =
@@ -215,7 +205,7 @@ mod config_tests {
         let csp = &v["app"]["security"]["csp"];
         assert!(
             !csp.is_null(),
-            "app.security.csp must not be null — it was null in the original config"
+            "app.security.csp must not be null"
         );
         assert!(
             csp.as_str().is_some(),
@@ -223,7 +213,7 @@ mod config_tests {
         );
     }
 
-    /// CA-2g : la CSP contient les directives attendues (tauri:, asset:, script-src 'self').
+    /// CSP contains the required directives (tauri:, asset:, script-src 'self').
     #[test]
     fn test_tauri_conf_csp_contains_required_directives() {
         let v: serde_json::Value =
@@ -249,7 +239,7 @@ mod config_tests {
         );
     }
 
-    /// CA-2h : la CSP ne contient pas 'unsafe-eval' (ADR-04).
+    /// CSP does not contain 'unsafe-eval'.
     #[test]
     fn test_tauri_conf_csp_no_unsafe_eval() {
         let v: serde_json::Value =
@@ -263,7 +253,7 @@ mod config_tests {
         );
     }
 
-    /// CA-2i : build.beforeDevCommand est présent et non vide.
+    /// build.beforeDevCommand is present and non-empty.
     #[test]
     fn test_tauri_conf_before_dev_command_present() {
         let v: serde_json::Value =
@@ -275,7 +265,7 @@ mod config_tests {
         );
     }
 
-    /// CA-2j : build.beforeBuildCommand est présent et non vide.
+    /// build.beforeBuildCommand is present and non-empty.
     #[test]
     fn test_tauri_conf_before_build_command_present() {
         let v: serde_json::Value =
@@ -287,11 +277,9 @@ mod config_tests {
         );
     }
 
-    // ------------------------------------------------------------------
-    // AC-2 : cohérence croisée tauri.conf.json ↔ capabilities/default.json
-    // ------------------------------------------------------------------
+    // ── Cross-file consistency ─────────────────────────────────────────────────
 
-    /// CC-1 : les deux fichiers sont du JSON valide (test de parsing combiné).
+    /// Both config files are valid JSON.
     #[test]
     fn test_both_config_files_are_valid_json() {
         assert!(

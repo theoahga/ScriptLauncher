@@ -84,7 +84,7 @@ export default function App(): JSX.Element {
               <span
                 className="main-panel__tab-close"
                 role="button"
-                aria-label={`Fermer ${tab.script.name}`}
+                aria-label={`Close ${tab.script.name}`}
                 onClick={(e) => { e.stopPropagation(); handleCloseTab(tab.id); }}
               >
                 ×
@@ -96,9 +96,9 @@ export default function App(): JSX.Element {
               type="button"
               className="main-panel__tab main-panel__tab--close-all"
               onClick={() => handleCloseAllTabs(tabs)}
-              title="Fermer tous les onglets"
+              title="Close all tabs"
             >
-              Tout fermer
+              Close all
             </button>
           )}
           <button
@@ -106,14 +106,14 @@ export default function App(): JSX.Element {
             className={`main-panel__tab main-panel__tab--history${showHistory ? " main-panel__tab--active" : ""}`}
             onClick={() => setShowHistory(true)}
           >
-            Historique
+            History
           </button>
         </div>
 
         {showHistory ? (
           <HistoryPanel historyVersion={historyVersion} />
         ) : tabs.length === 0 ? (
-          <p className="main-panel__empty">Sélectionnez un script dans la sidebar</p>
+          <p className="main-panel__empty">Select a script from the sidebar</p>
         ) : (
           tabs.map((tab) => (
             <div

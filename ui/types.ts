@@ -1,63 +1,61 @@
 /**
- * Types partagés ScriptLauncher
- * Correspondent aux structs Rust sérialisées via serde dans core/src/
+ * Shared ScriptLauncher types.
+ * Match the Rust structs serialized via serde in core/src/.
  */
 
 export interface ScriptInfo {
-  /** Nom complet du fichier (ex: "deploy.sh") */
+  /** Full filename (e.g., "deploy.sh") */
   name: string;
-  /** Chemin absolu complet (ex: "/scripts/deploy.sh") */
+  /** Absolute path (e.g., "/scripts/deploy.sh") */
   path: string;
-  /** Extension sans point (ex: "sh", "py", "js") */
+  /** Extension without dot (e.g., "sh", "py", "js") */
   extension: string;
 }
 
 export interface ScriptOutput {
-  /** Sortie standard du script */
+  /** Script stdout */
   stdout: string;
-  /** Sortie d'erreur du script */
+  /** Script stderr */
   stderr: string;
-  /** Code de retour (0 = succès, !=0 = erreur, -1 = tué par signal) */
+  /** Exit code (0 = success, !=0 = error, -1 = killed by signal) */
   exit_code: number;
 }
 
 export interface HistoryEntry {
-  /** UUID v4 généré côté frontend via crypto.randomUUID() */
+  /** UUID v4 generated client-side via crypto.randomUUID() */
   id: string;
-  /** Nom du fichier script (ex: "deploy.sh") */
+  /** Script filename (e.g., "deploy.sh") */
   script_name: string;
-  /** Chemin absolu du script */
+  /** Absolute path of the script */
   script_path: string;
-  /** Timestamp de début d'exécution (ISO 8601) */
+  /** Execution start timestamp (ISO 8601) */
   started_at: string;
-  /** Durée d'exécution en millisecondes */
+  /** Execution duration in milliseconds */
   duration_ms: number;
-  /** Code de retour (0 = succès, !=0 = erreur, -1 = tué par signal) */
+  /** Exit code (0 = success, !=0 = error, -1 = killed by signal) */
   exit_code: number;
-  /** Sortie standard capturée */
+  /** Captured stdout */
   stdout: string;
-  /** Sortie d'erreur capturée */
+  /** Captured stderr */
   stderr: string;
 }
 
 export interface ExecutionTab {
-  /** UUID de l'onglet, aussi utilisé comme execution_id côté backend */
+  /** Tab UUID, also used as execution_id on the backend */
   id: string;
   script: ScriptInfo;
 }
 
-// S-09 — Config système : catégories de scripts
-
 export interface Category {
-  /** Identifiant unique opaque (UUID v4 généré côté frontend) */
+  /** Opaque unique ID (UUID v4 generated client-side) */
   id: string;
-  /** Nom affiché dans la sidebar */
+  /** Display name shown in the sidebar */
   name: string;
-  /** Chemin absolu vers le dossier de scripts */
+  /** Absolute path to the scripts folder */
   path: string;
 }
 
 export interface AppConfig {
-  /** Liste ordonnée des catégories de scripts */
+  /** Ordered list of script categories */
   categories: Category[];
 }

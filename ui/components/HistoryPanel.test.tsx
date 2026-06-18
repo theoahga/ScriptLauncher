@@ -29,7 +29,6 @@ Object.defineProperty(globalThis, "crypto", {
   value: { randomUUID: () => "test-uuid" },
 });
 
-// Données de test
 const entry1: HistoryEntry = {
   id: "uuid-001",
   script_name: "deploy.sh",
@@ -58,20 +57,20 @@ describe("HistoryPanel", () => {
     mockConfirm.mockReturnValue(false);
   });
 
-  // ── Cas 1 : liste vide → message "Aucune exécution" ──────────────────────
-  it("affiche 'Aucune exécution' quand l'historique est vide", async () => {
+  // Case 1: empty list → "No executions" message
+  it("shows 'No executions' when history is empty", async () => {
     vi.mocked(invoke).mockResolvedValue([]);
 
     render(<HistoryPanel historyVersion={0} />);
 
     await waitFor(() => {
-      expect(screen.getByText("Aucune exécution")).toBeInTheDocument();
+      expect(screen.getByText("No executions")).toBeInTheDocument();
     });
     expect(invoke).toHaveBeenCalledWith("get_history", { limit: 50 });
   });
 
-  // ── Cas 2 : entrée affichée avec nom, date et exit code ───────────────────
-  it("affiche le nom du script, la date et le badge exit code de chaque entrée", async () => {
+  // Case 2: entry shown with name, date, and exit code badge
+  it("shows script name, date, and exit code badge for each entry", async () => {
     vi.mocked(invoke).mockResolvedValue([entry1, entry2]);
 
     render(<HistoryPanel historyVersion={0} />);
@@ -81,16 +80,16 @@ describe("HistoryPanel", () => {
       expect(screen.getByText("backup.py")).toBeInTheDocument();
     });
 
-    // Badge exit code 0 → "OK"
+    // exit code 0 → "OK"
     const badges = screen.getAllByText("OK");
     expect(badges.length).toBeGreaterThanOrEqual(1);
 
-    // Badge exit code 1 → "✗ 1"
+    // exit code 1 → "✗ 1"
     expect(screen.getByText("✗ 1")).toBeInTheDocument();
   });
 
-  // ── Cas 3 : clic sur une entrée → stdout affiché dans le détail ───────────
-  it("affiche le stdout de l'entrée sélectionnée lors du clic", async () => {
+  // Case 3: click on an entry → stdout shown in detail pane
+  it("shows stdout of the selected entry on click", async () => {
     vi.mocked(invoke).mockResolvedValue([entry1]);
 
     render(<HistoryPanel historyVersion={0} />);
@@ -99,7 +98,7 @@ describe("HistoryPanel", () => {
       expect(screen.getByText("deploy.sh")).toBeInTheDocument();
     });
 
-    // Avant le clic : pas de détail
+    // Before click: no detail
     expect(screen.queryByText("Deploy successful")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText("deploy.sh").closest("li")!);
@@ -113,8 +112,8 @@ describe("HistoryPanel", () => {
     });
   });
 
-  // ── Cas 4 : bouton "Effacer" → clear_history invoqué après confirmation ───
-  it("appelle clear_history et vide la liste quand l'utilisateur confirme l'effacement", async () => {
+  // Case 4: "Clear history" → clear_history invoked after confirmation
+  it("calls clear_history and empties the list when the user confirms", async () => {
     vi.mocked(invoke).mockResolvedValue([entry1]);
     mockConfirm.mockReturnValue(true);
 
@@ -124,25 +123,25 @@ describe("HistoryPanel", () => {
       expect(screen.getByText("deploy.sh")).toBeInTheDocument();
     });
 
-    // Simuler clear_history qui retourne undefined
+    // Simulate clear_history returning undefined
     vi.mocked(invoke).mockResolvedValueOnce(undefined);
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Effacer l'historique" }),
+      screen.getByRole("button", { name: "Clear history" }),
     );
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith("clear_history");
     });
 
-    // Après effacement, la liste doit être vide
+    // After clearing, the list should be empty
     await waitFor(() => {
-      expect(screen.getByText("Aucune exécution")).toBeInTheDocument();
+      expect(screen.getByText("No executions")).toBeInTheDocument();
     });
   });
 
-  // ── Cas 5 : annulation de la confirmation → clear_history non appelé ──────
-  it("n'appelle pas clear_history si l'utilisateur annule la confirmation", async () => {
+  // Case 5: confirmation cancelled → clear_history not called
+  it("does not call clear_history if the user cancels", async () => {
     vi.mocked(invoke).mockResolvedValue([entry1]);
     mockConfirm.mockReturnValue(false);
 
@@ -157,21 +156,21 @@ describe("HistoryPanel", () => {
       .mock.calls.filter((call) => call[0] === "clear_history").length;
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Effacer l'historique" }),
+      screen.getByRole("button", { name: "Clear history" }),
     );
 
-    // Pas de nouvel appel à clear_history
+    // No new call to clear_history
     const clearCallsAfter = vi
       .mocked(invoke)
       .mock.calls.filter((call) => call[0] === "clear_history").length;
     expect(clearCallsAfter).toBe(clearCallsBefore);
 
-    // La liste est toujours visible
+    // List is still visible
     expect(screen.getByText("deploy.sh")).toBeInTheDocument();
   });
 
-  // ── Cas 6 : historyVersion change → get_history rechargé ─────────────────
-  it("recharge l'historique quand historyVersion change", async () => {
+  // Case 6: historyVersion changes → get_history reloaded
+  it("reloads history when historyVersion changes", async () => {
     vi.mocked(invoke).mockResolvedValue([entry1]);
 
     const { rerender } = render(<HistoryPanel historyVersion={0} />);
@@ -182,7 +181,7 @@ describe("HistoryPanel", () => {
 
     const callsAfterFirstLoad = vi.mocked(invoke).mock.calls.length;
 
-    // Simuler un nouvel append (historyVersion++): l'historique contient maintenant entry1 + entry2
+    // Simulate a new append (historyVersion++): history now contains entry1 + entry2
     vi.mocked(invoke).mockResolvedValue([entry2, entry1]);
     rerender(<HistoryPanel historyVersion={1} />);
 
@@ -197,35 +196,35 @@ describe("HistoryPanel", () => {
     });
   });
 
-  // ── Cas 7 : bouton Effacer désactivé quand liste vide ─────────────────────
-  it("désactive le bouton 'Effacer l'historique' quand la liste est vide", async () => {
+  // Case 7: Clear history button disabled when list is empty
+  it("disables the 'Clear history' button when the list is empty", async () => {
     vi.mocked(invoke).mockResolvedValue([]);
 
     render(<HistoryPanel historyVersion={0} />);
 
     await waitFor(() => {
-      expect(screen.getByText("Aucune exécution")).toBeInTheDocument();
+      expect(screen.getByText("No executions")).toBeInTheDocument();
     });
 
     const clearBtn = screen.getByRole("button", {
-      name: "Effacer l'historique",
+      name: "Clear history",
     });
     expect(clearBtn).toBeDisabled();
   });
 
-  // ── Cas 8 : erreur invoke → message d'erreur affiché ─────────────────────
-  it("affiche le message d'erreur quand get_history rejette", async () => {
-    vi.mocked(invoke).mockRejectedValue("Erreur accès disque");
+  // Case 8: invoke error → error message shown
+  it("shows the error message when get_history rejects", async () => {
+    vi.mocked(invoke).mockRejectedValue("Disk access error");
 
     render(<HistoryPanel historyVersion={0} />);
 
     await waitFor(() => {
-      expect(screen.getByText("Erreur accès disque")).toBeInTheDocument();
+      expect(screen.getByText("Disk access error")).toBeInTheDocument();
     });
   });
 
-  // ── Cas 9 : clic sur entrée déjà sélectionnée → désélectionne ────────────
-  it("désélectionne l'entrée si on clique dessus une deuxième fois", async () => {
+  // Case 9: clicking an already-selected entry deselects it
+  it("deselects an entry when clicked a second time", async () => {
     vi.mocked(invoke).mockResolvedValue([entry1]);
 
     render(<HistoryPanel historyVersion={0} />);
@@ -236,7 +235,7 @@ describe("HistoryPanel", () => {
 
     const entryEl = screen.getByText("deploy.sh").closest("li")!;
 
-    // Premier clic → sélectionne
+    // First click → selects
     fireEvent.click(entryEl);
     await waitFor(() => {
       expect(
@@ -244,7 +243,7 @@ describe("HistoryPanel", () => {
       ).toBeInTheDocument();
     });
 
-    // Deuxième clic → désélectionne
+    // Second click → deselects
     act(() => {
       fireEvent.click(entryEl);
     });
@@ -255,8 +254,8 @@ describe("HistoryPanel", () => {
     });
   });
 
-  // ── Cas 10 : stderr affiché seulement si non vide ─────────────────────────
-  it("affiche la section stderr seulement si le contenu est non vide", async () => {
+  // Case 10: stderr section shown only when non-empty
+  it("shows the stderr section only if the content is non-empty", async () => {
     vi.mocked(invoke).mockResolvedValue([entry2]);
 
     render(<HistoryPanel historyVersion={0} />);
@@ -274,7 +273,7 @@ describe("HistoryPanel", () => {
       expect(stderr?.textContent).toContain("Error: disk full");
     });
 
-    // Pour entry1 (stderr vide), la section stderr ne doit pas apparaître
+    // For entry1 (empty stderr), the stderr section must not appear
     vi.mocked(invoke).mockResolvedValue([entry1]);
     const { rerender } = render(<HistoryPanel historyVersion={0} />);
     rerender(<HistoryPanel historyVersion={1} />);
